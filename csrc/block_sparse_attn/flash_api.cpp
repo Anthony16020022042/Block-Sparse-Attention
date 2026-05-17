@@ -8,17 +8,7 @@
 // Include these 2 headers instead of torch/extension.h since we don't need all of the torch headers.
 #include <torch/python.h>
 #include <torch/nn/functional.h>
-#include <c10/cuda/CUDAGuard.h>
-#include <c10/cuda/CUDAStream.h>
-#include <ATen/cuda/CUDAGeneratorImpl.h>  // For at::Generator and at::PhiloxCudaState
-// #include "philox_unpack.cuh"  // For at::cuda::philox::unpack
 
-#include <cutlass/numeric_types.h>
-
-#include "namespace_config.h"
-#include "hardware_info.h"
-#include "flash.h"
-#include "static_switch.h"
 
 #define CHECK_DEVICE(x) TORCH_CHECK(x.is_cuda(), #x " must be on CUDA")
 #define CHECK_SHAPE(x, ...) TORCH_CHECK(x.sizes() == torch::IntArrayRef({__VA_ARGS__}), #x " must have shape (" #__VA_ARGS__ ")")

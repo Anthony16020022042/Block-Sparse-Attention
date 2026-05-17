@@ -18,13 +18,9 @@ import urllib.request
 import urllib.error
 from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
 
+import torch_npu
 import torch
-from torch.utils.cpp_extension import (
-    BuildExtension,
-    CppExtension,
-    CUDAExtension,
-    CUDA_HOME,
-)
+
 
 
 with open("README.md", "r", encoding="utf-8") as fh:
@@ -212,32 +208,6 @@ if not SKIP_CUDA_BUILD:
             name="block_sparse_attn_cuda",
             sources=[
                 "csrc/block_sparse_attn/flash_api.cpp",
-                # add by JXGuo
-                "csrc/block_sparse_attn/src/flash_fwd_block_hdim32_fp16_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_fwd_block_hdim32_fp16_causal_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_fwd_block_hdim32_bf16_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_fwd_block_hdim32_bf16_causal_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_fwd_block_hdim64_fp16_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_fwd_block_hdim64_fp16_causal_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_fwd_block_hdim64_bf16_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_fwd_block_hdim64_bf16_causal_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_fwd_block_hdim128_fp16_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_fwd_block_hdim128_fp16_causal_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_fwd_block_hdim128_bf16_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_fwd_block_hdim128_bf16_causal_sm80.cu",
-                
-                "csrc/block_sparse_attn/src/flash_bwd_block_hdim32_fp16_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_bwd_block_hdim32_fp16_causal_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_bwd_block_hdim32_bf16_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_bwd_block_hdim32_bf16_causal_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_bwd_block_hdim64_fp16_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_bwd_block_hdim64_fp16_causal_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_bwd_block_hdim64_bf16_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_bwd_block_hdim64_bf16_causal_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_bwd_block_hdim128_fp16_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_bwd_block_hdim128_fp16_causal_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_bwd_block_hdim128_bf16_sm80.cu",
-                "csrc/block_sparse_attn/src/flash_bwd_block_hdim128_bf16_causal_sm80.cu",
             ],
             extra_compile_args={
                 "cxx": compiler_c17_flag,
@@ -359,12 +329,9 @@ setup(
             "block_sparse_attn.egg-info",
         )
     ),
-    author="Junxian Guo",
-    author_email="junxian@mit.edu",
     description="Block Sparse Attention",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/mit-han-lab/Block-Sparse-Attention",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
