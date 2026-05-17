@@ -151,7 +151,7 @@ ext_modules.append(Extension(
     name="block_sparse_attn",
     sources=source_files,
     language="c++",
-))PACKAGE_NAME
+))
 
 
 def get_package_version():
