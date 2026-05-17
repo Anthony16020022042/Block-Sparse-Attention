@@ -1,9 +1,3 @@
 [submodule "csrc/catlass"]
 	path = csrc/catlass
 	url = https://gitcode.com/cann/catlass.git
-[submodule "catlass"]
-	path = catlass
-	url = https://gitcode.com/cann/catlass.git
-[submodule "csrc/csrc/catlass"]
-	path = csrc/csrc/catlass
-	url = https://gitcode.com/cann/catlass.git
