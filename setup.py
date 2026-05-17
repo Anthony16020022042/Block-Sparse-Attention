@@ -11,7 +11,8 @@ from pathlib import Path
 from packaging.version import parse, Version
 import platform
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
+from setuptools.command.build_ext import build_ext
 import subprocess
 
 import urllib.request
