@@ -244,7 +244,7 @@ setup(
         "Operating System :: Unix",
     ],
     ext_modules=ext_modules,
-    cmdclass={"bdist_wheel": CachedWheelsCommand, "build_ext": BishengBuildExtension}
+    cmdclass={"bdist_wheel": CachedWheelsCommand, "build_ext": BishengBuildExt}
     if ext_modules
     else {
         "bdist_wheel": CachedWheelsCommand,
