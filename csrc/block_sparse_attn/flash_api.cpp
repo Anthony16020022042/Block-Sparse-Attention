@@ -1,13 +1,12 @@
 #include <torch/extension.h>
 
-#include "block_sparse_attention_tiling.h"
 #include "acl/acl.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
 #include "runtime/rt_ffts.h"
 #include "kernel_common.hpp"
 #include "kernel_operator.h"
-
+//#include "block_sparse_attention_tiling.h"
 
 // void set_params_fprop(Flash_fwd_params &params,
 //                       // sizes
