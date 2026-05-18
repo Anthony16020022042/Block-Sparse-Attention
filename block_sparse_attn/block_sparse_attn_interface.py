@@ -143,7 +143,7 @@ else:
     _torch_register_fake_wrapper = noop_register_fake_wrapper
 
 
-@_torch_custom_op_wrapper("flash_attn::_block_sparse_attn_forward", mutates_args=(), device_types="cuda")
+@_torch_custom_op_wrapper("flash_attn::_block_sparse_attn_forward", mutates_args=(), device_types="npu")
 def _block_sparse_attn_forward(
     q: torch.Tensor,
     k: torch.Tensor,
@@ -229,7 +229,7 @@ else:
     _wrapped_block_sparse_attn_forward = _block_sparse_attn_forward
 
 
-@_torch_custom_op_wrapper("flash_attn::_block_sparse_attn_backward", mutates_args=("dq", "dk", "dv"), device_types="cuda")
+@_torch_custom_op_wrapper("flash_attn::_block_sparse_attn_backward", mutates_args=("dq", "dk", "dv"), device_types="npu")
 def _block_sparse_attn_backward(
     dout: torch.Tensor,
     q: torch.Tensor,
