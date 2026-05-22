@@ -1,6 +1,6 @@
 # Adapted from https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/flash_blocksparse_attn_interface.py
 
-import block_sparse_attn_cuda
+import block_sparse_attn
 import torch
 import torch.nn as nn
 from typing import Optional, Tuple
@@ -166,7 +166,7 @@ def _block_sparse_attn_forward(
     window_size_right: int
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     q, k, v = [maybe_contiguous(x) for x in (q, k, v)]
-    out, softmax_lse, S_dmask, rng_state = block_sparse_attn_cuda.fwd_block(
+    out, softmax_lse, S_dmask, rng_state = block_sparse_attn.fwd_block(
         q, k, v,
         cu_seqlens_q, cu_seqlens_k,
         head_mask_type,
@@ -259,7 +259,7 @@ def _block_sparse_attn_backward(
     rng_state: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     dout, q, k, v, out = [maybe_contiguous(x) for x in (dout, q, k, v, out)]
-    dq, dk, dv, softmax_d = block_sparse_attn_cuda.bwd_block(
+    dq, dk, dv, softmax_d = block_sparse_attn.bwd_block(
         dout,
         q, k, v,
         out,

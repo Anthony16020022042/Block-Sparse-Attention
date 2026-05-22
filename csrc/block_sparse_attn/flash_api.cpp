@@ -4,9 +4,9 @@
 #include "tiling/platform/platform_ascendc.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
 #include "runtime/rt_ffts.h"
-//#include "kernel_common.hpp"
+// #include "kernel_common.hpp"
 #include "kernel_operator.h"
-//#include "block_sparse_attention_tiling.h"
+// #include "block_sparse_attention_tiling.h"
 
 // void set_params_fprop(Flash_fwd_params &params,
 //                       // sizes
@@ -418,7 +418,6 @@
 //     });
 // }
 
-
 // std::vector<at::Tensor>
 // mha_varlen_bwd_block(const at::Tensor &dout,  // total_q x num_heads, x head_size
 //                const at::Tensor &q,   // total_q x num_heads x head_size, total_q := \sum_{i=0}^{b} s_i
@@ -642,7 +641,7 @@
 //     );
 //     params.dq_accum_split_stride = !deterministic ? 0 : dq_accum.stride(0);
 //     params.total_q = total_q;
-    
+
 //     params.head_mask_type = static_cast<int *>(head_mask_type.data_ptr());
 //     if(has_blockmask){
 //         params.blockmask = static_cast<int *>(col_blockmask.data_ptr());
@@ -699,65 +698,68 @@
 // }
 
 std::vector<at::Tensor>
-mha_varlen_fwd_block(at::Tensor &q,  // total_q x num_heads x head_size, total_q := \sum_{i=0}^{b} s_i
-               const at::Tensor &k,  // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
-              const at::Tensor &v,  // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
-               const at::Tensor &cu_seqlens_q,  // b+1
-               const at::Tensor &cu_seqlens_k,  // b+1
-              // const bool is_blocksparse,
-               const at::Tensor &head_mask_type, // (num_heads)
-               std::optional<at::Tensor> &streaming_info_, // (num_heads, 2)
-               std::optional<at::Tensor> &row_blockmask_,   // (batch_size, num_blocksparse_heads, seqlen_m / m_block_dim, seqlen_n / n_block_dim)
-               int max_seqlen_q,
-               const int max_seqlen_k,
-               const float p_dropout,
-               const float softmax_scale,
-               bool is_causal,
-               int window_size_left,
-               int window_size_right,
-               const int m_block_dim,
-               const int n_block_dim,
-               const bool exact_streaming,
-               const bool return_softmax,
-               std::optional<at::Generator> gen_) {
+mha_varlen_fwd_block(at::Tensor &q,                              // total_q x num_heads x head_size, total_q := \sum_{i=0}^{b} s_i
+                     const at::Tensor &k,                        // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
+                     const at::Tensor &v,                        // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
+                     const at::Tensor &cu_seqlens_q,             // b+1
+                     const at::Tensor &cu_seqlens_k,             // b+1
+                     const at::Tensor &head_mask_type,           // (num_heads)
+                     std::optional<at::Tensor> &streaming_info_, // (num_heads, 2)
+                     std::optional<at::Tensor> &row_blockmask_,  // (batch_size, num_blocksparse_heads, seqlen_m / m_block_dim, seqlen_n / n_block_dim)
+                     int max_seqlen_q,
+                     const int max_seqlen_k,
+                     const float p_dropout,
+                     const float softmax_scale,
+                     bool is_causal,
+                     int window_size_left,
+                     int window_size_right,
+                     const int m_block_dim,
+                     const int n_block_dim,
+                     const bool exact_streaming,
+                     const bool return_softmax,
+                     std::optional<at::Generator> gen_)
+{
+    const c10::OptionalDeviceGuard device_guard(device_of(q));
+    auto aclStream = c10_npu::getCurrentNPUStream().stream(false);
     std::vector<at::Tensor> result;
     return result;
 }
 
 std::vector<at::Tensor>
-mha_varlen_bwd_block(const at::Tensor &dout,  // total_q x num_heads, x head_size
-               const at::Tensor &q,   // total_q x num_heads x head_size, total_q := \sum_{i=0}^{b} s_i
-               const at::Tensor &k,   // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
-               const at::Tensor &v,   // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
-               const at::Tensor &out,   // total_q x num_heads x head_size
-               const at::Tensor &softmax_lse,    // h x total_q, softmax logsumexp
-               std::optional<at::Tensor> &dq_,   // total_q x num_heads x head_size, total_q := \sum_{i=0}^{b} s_i
-               std::optional<at::Tensor> &dk_,   // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
-               std::optional<at::Tensor> &dv_,   // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
-               const at::Tensor &cu_seqlens_q,  // b+1
-               const at::Tensor &cu_seqlens_k,  // b+1
-               const at::Tensor &head_mask_type, // (num_heads)
-               std::optional<at::Tensor> &streaming_info_,
-               std::optional<at::Tensor> &col_blockmask_,   // (batch_size, num_blocksparse_heads, seqlen_n / n_block_dim, seqlen_m / m_block_dim)
-               const int max_seqlen_q,
-               const int max_seqlen_k,          // max sequence length to choose the kernel
-               const float p_dropout,         // probability to drop
-               const float softmax_scale,
-               const bool zero_tensors,
-               const bool is_causal,
-               int window_size_left,
-               int window_size_right,
-               const int m_block_dim,
-               const int n_block_dim,
-               const bool deterministic,
-               std::optional<at::Generator> gen_,
-               std::optional<at::Tensor> &rng_state)
+mha_varlen_bwd_block(const at::Tensor &dout,           // total_q x num_heads, x head_size
+                     const at::Tensor &q,              // total_q x num_heads x head_size, total_q := \sum_{i=0}^{b} s_i
+                     const at::Tensor &k,              // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
+                     const at::Tensor &v,              // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
+                     const at::Tensor &out,            // total_q x num_heads x head_size
+                     const at::Tensor &softmax_lse,    // h x total_q, softmax logsumexp
+                     std::optional<at::Tensor> &dq_,   // total_q x num_heads x head_size, total_q := \sum_{i=0}^{b} s_i
+                     std::optional<at::Tensor> &dk_,   // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
+                     std::optional<at::Tensor> &dv_,   // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
+                     const at::Tensor &cu_seqlens_q,   // b+1
+                     const at::Tensor &cu_seqlens_k,   // b+1
+                     const at::Tensor &head_mask_type, // (num_heads)
+                     std::optional<at::Tensor> &streaming_info_,
+                     std::optional<at::Tensor> &col_blockmask_, // (batch_size, num_blocksparse_heads, seqlen_n / n_block_dim, seqlen_m / m_block_dim)
+                     const int max_seqlen_q,
+                     const int max_seqlen_k, // max sequence length to choose the kernel
+                     const float p_dropout,  // probability to drop
+                     const float softmax_scale,
+                     const bool zero_tensors,
+                     const bool is_causal,
+                     int window_size_left,
+                     int window_size_right,
+                     const int m_block_dim,
+                     const int n_block_dim,
+                     const bool deterministic,
+                     std::optional<at::Generator> gen_,
+                     std::optional<at::Tensor> &rng_state)
 {
     std::vector<at::Tensor> result;
     return result;
 }
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+{
     m.doc() = "BlockSparseAttention";
     m.def("fwd_block", &mha_varlen_fwd_block, "Forward pass, with blockmask");
     m.def("bwd_block", &mha_varlen_bwd_block, "Backward pass, with blockmask");
