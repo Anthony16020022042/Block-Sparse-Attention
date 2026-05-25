@@ -1,11 +1,12 @@
 #include <torch/extension.h>
 
 #include "acl/acl.h"
+#include "runtime/rt_ffts.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
-#include "runtime/rt_ffts.h"
 // #include "kernel_common.hpp"
 #include "kernel_operator.h"
+#include "mha_varlen_fwd_block.cpp"
 #include "tiling_data.h"
 // #include "block_sparse_attention_tiling.h"
 
@@ -700,8 +701,7 @@
 
 static inline uint32_t CeilDiv(uint32_t n1, uint32_t n2)
 {
-    if (n1 == 0)
-    {
+    if (n1 == 0) {
         return 0;
     }
     return (n2 != 0) ? ((n1 + n2 - 1) / n2) : n1;
@@ -781,7 +781,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     int num_heads = sizes[1];
     const int head_size_og = sizes[2];
     const int batch_size = cu_seqlens_q.numel() - 1;
-    auto blockMaskSizes = row_blockmask_.sizes();
+    auto blockMaskSizes = row_blockmask_.value().sizes();
     int64_t maxQBlockNum = blockMaskSizes[2];
     int64_t maxKvBlockNum = blockMaskSizes[3];
 
@@ -799,7 +799,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
 
         uint32_t curTaskNum = 0;
         uint32_t curQBlockNum = 0;
-        CalculateBatchTaskSplit(qSeqlen, groupSize, curTaskNum, curQBlockNum);
+        CalculateBatchTaskSplit(qSeqlen, 1, curTaskNum, curQBlockNum);
 
         if (i == 0) {
             firstBatchTaskNum = curTaskNum;
@@ -810,8 +810,8 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     }
     blockDim = std::min(blockDim, totalTaskNum);
 
-    int64_t selectIdxSize = CeilDiv(m_block_dim, 128) * CeilDiv(maxKvBlockNum, 32) * 32 * sizeof(uint32_t) * batch_size * numHeads * maxQBlockNum;
-    int64_t selectNumIdxSize = CeilDiv(m_block_dim, 128) * sizeof(uint32_t) * 32 * batch_size * numHeads * maxQBlockNum;
+    int64_t selectIdxSize = CeilDiv(m_block_dim, 128) * CeilDiv(maxKvBlockNum, 32) * 32 * sizeof(uint32_t) * batch_size * num_heads * maxQBlockNum;
+    int64_t selectNumIdxSize = CeilDiv(m_block_dim, 128) * sizeof(uint32_t) * 32 * batch_size * num_heads * maxQBlockNum;
     int64_t syncSize = sizeof(uint32_t) * 256;
 
     uint64_t WORKSPACE_BLOCK_SIZE_DB = 131072; // 工作空间块大小
@@ -826,8 +826,8 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     uint64_t UpdateSize = static_cast<uint64_t>(blockDim) * WORKSPACE_BLOCK_SIZE_DB *
                           sizeof(float) * PRELANCH_NUM;
     int64_t workSpaceSize = libapiSize + mm1OutSize + smOnlineOutSize + mm2OutSize + UpdateSize + selectNumIdxSize + selectIdxSize + syncSize;
-    uint32_t totalTaskNumMask = batch * numHeads * maxQBlockNum;
-    uint32_t avgRowNumPerSubCore = CeilDiv(totalTaskNumMask, blockDim_ * 2);
+    uint32_t totalTaskNumMask = batch_size * num_heads * maxQBlockNum;
+    uint32_t avgRowNumPerSubCore = CeilDiv(totalTaskNumMask, blockDim * 2);
     uint32_t preActivateSubCoreNum = CeilDiv(totalTaskNumMask, avgRowNumPerSubCore);
 
     const int num_heads_k = k.size(1);
@@ -837,7 +837,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     tiling_cpu_ptr->set_kvHeads(static_cast<uint32_t>(num_heads_k));        // S
     tiling_cpu_ptr->set_embeddingSize(static_cast<uint32_t>(head_size_og)); // D
     tiling_cpu_ptr->set_blockSize(0);
-    tiling_cpu_ptr->set_maxNumBlocksPerBatch(static_cast<uint32_t>(max_num_blocks_per_seq)); // 0
+    tiling_cpu_ptr->set_maxNumBlocksPerBatch(static_cast<uint32_t>(0)); // 0
     tiling_cpu_ptr->set_firstBatchTaskNum(firstBatchTaskNum);
     tiling_cpu_ptr->set_totalTaskNum(totalTaskNum);
     tiling_cpu_ptr->set_maskType(0);
@@ -871,13 +871,15 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     at::Tensor out;
     out = torch::empty_like(q);
 
+    at::Tensor tiling_gpu_tensor = tiling_cpu_tensor.to(at::Device(at::kPrivateUse1)); // Tiling to Device
+
     uint64_t fftsAddr{0};
     uint32_t fftsLen{0};
     rtError_t error = rtGetC2cCtrlAddr(&fftsAddr, &fftsLen);
     auto qDevice = static_cast<uint8_t *>(const_cast<void *>(q.data_ptr()));
     auto kDevice = static_cast<uint8_t *>(const_cast<void *>(k.data_ptr()));
     auto vDevice = static_cast<uint8_t *>(const_cast<void *>(v.data_ptr()));
-    auto blockSparseMaskDevice = static_cast<uint8_t *>(const_cast<void *>(row_blockmask_.data_ptr()));
+    auto blockSparseMaskDevice = static_cast<uint8_t *>(const_cast<void *>(row_blockmask_.value().data_ptr()));
     auto oDevice = static_cast<uint8_t *>(const_cast<void *>(out.data_ptr()));
     auto qSeqDevice = static_cast<uint8_t *>(const_cast<void *>(cu_seqlens_q.data_ptr()));
     auto kvSeqDevice = static_cast<uint8_t *>(const_cast<void *>(cu_seqlens_k.data_ptr()));
