@@ -1,8 +1,7 @@
 #ifndef TILING_DATA_H
 #define TILING_DATA_H
 
-struct BlockSparseAttentionTilingData
-{
+struct BlockSparseAttentionTilingData {
     uint32_t batch;
     uint32_t numHeads;
     uint32_t kvHeads;

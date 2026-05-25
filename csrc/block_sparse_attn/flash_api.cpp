@@ -6,6 +6,7 @@
 #include "runtime/rt_ffts.h"
 // #include "kernel_common.hpp"
 #include "kernel_operator.h"
+#include "tiling_data.h"
 // #include "block_sparse_attention_tiling.h"
 
 // void set_params_fprop(Flash_fwd_params &params,
@@ -697,6 +698,41 @@
 //     return { dq, dk, dv, softmax_d };
 // }
 
+static inline uint32_t CeilDiv(uint32_t n1, uint32_t n2)
+{
+    if (n1 == 0)
+    {
+        return 0;
+    }
+    return (n2 != 0) ? ((n1 + n2 - 1) / n2) : n1;
+}
+
+static inline uint32_t GetQNBlockTile()
+{
+    uint32_t qNBlockTile = 1;
+    return qNBlockTile;
+}
+
+uint32_t GetQBlocks(int32_t qseqlen, int32_t x)
+{
+    constexpr uint32_t BASIC_BLOCK_SIZE = 128;
+    uint32_t qBlocksInX = (x + BASIC_BLOCK_SIZE - 1) / BASIC_BLOCK_SIZE;
+    uint32_t completeXBlocks = x != 0 ? qseqlen / x : qseqlen / BASIC_BLOCK_SIZE;
+    uint32_t remainingSeqlen = x != 0 ? qseqlen - completeXBlocks * x : qseqlen % BASIC_BLOCK_SIZE;
+    uint32_t remainingBlocks = (remainingSeqlen + BASIC_BLOCK_SIZE - 1) / BASIC_BLOCK_SIZE;
+    return qBlocksInX * completeXBlocks + remainingBlocks;
+}
+
+void CalculateBatchTaskSplit(int64_t qSeqlen, uint32_t groupSize,
+                             uint32_t &curTaskNum, uint32_t &curQBlockNum)
+{
+    uint32_t curQBlockTile = GetQNBlockTile();
+    uint32_t qNBlockNumPerGroup = CeilDiv(groupSize, curQBlockTile);
+    uint32_t curQNBlockNum = qNBlockNumPerGroup * kvHeads_;
+    curTaskNum = GetQBlocks(qSeqlen, blockShapeX_) * curQNBlockNum;
+    curQBlockNum = CeilDiv(qSeqlen, blockShapeX_) * numHeads_;
+}
+
 std::vector<at::Tensor>
 mha_varlen_fwd_block(at::Tensor &q,                              // total_q x num_heads x head_size, total_q := \sum_{i=0}^{b} s_i
                      const at::Tensor &k,                        // total_k x num_heads_k x head_size, total_k := \sum_{i=0}^{b} s_i
@@ -721,8 +757,160 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
 {
     const c10::OptionalDeviceGuard device_guard(device_of(q));
     auto aclStream = c10_npu::getCurrentNPUStream().stream(false);
-    std::vector<at::Tensor> result;
-    return result;
+    at::Tensor tiling_cpu_tensor = at::empty({1024}, at::device(c10::kCPU).dtype(at::kByte));
+    BlockSparseAttentionTilingData *tiling_cpu_ptr = reinterpret_cast<BlockSparseAttentionTilingData *>(tiling_cpu_tensor.data_ptr<uint8_t>());
+    uint32_t blockDim = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
+    uint64_t libapiSize = platform_ascendc::PlatformAscendCManager::GetInstance()->GetLibApiWorkSpaceSize();
+
+    bool is_bf16 = q.dtype() == torch::kBFloat16;
+    bool is_fp16 = q.dtype() == torch::kFloat16;
+
+    // 校验拦截不支持的模式
+    TORCH_CHECK(is_bf16 || is_fp16, "NPU BlockSparseAttention only supports Float16 or BFloat16.");
+    TORCH_CHECK(p_dropout == 0.0, "NPU BlockSparseAttention does not support dropout.");
+    TORCH_CHECK(window_size_left == -1, "NPU BlockSparseAttention does not support window_size_left.");
+    TORCH_CHECK(window_size_right == -1, "NPU BlockSparseAttention does not support window_size_right.");
+    TORCH_CHECK(k.dtype() == q.dtype(), "query and key must have the same dtype");
+    TORCH_CHECK(v.dtype() == q.dtype(), "query and value must have the same dtype");
+    TORCH_CHECK(q.stride(-1) == 1, "Input tensor must have contiguous last dimension");
+    TORCH_CHECK(k.stride(-1) == 1, "Input tensor must have contiguous last dimension");
+    TORCH_CHECK(v.stride(-1) == 1, "Input tensor must have contiguous last dimension");
+
+    const auto sizes = q.sizes();
+    int T = sizes[0];
+    int num_heads = sizes[1];
+    const int head_size_og = sizes[2];
+    const int batch_size = cu_seqlens_q.numel() - 1;
+    auto blockMaskSizes = row_blockmask_.sizes();
+    int64_t maxQBlockNum = blockMaskSizes[2];
+    int64_t maxKvBlockNum = blockMaskSizes[3];
+
+    uint32_t totalTaskNum = 0;
+    uint32_t totalQBlocks = 0;
+    uint32_t firstBatchTaskNum = 0;
+    uint32_t firstQBlockNum = 0;
+    const int32_t *qSeqLenList = static_cast<const int32_t *>(cu_seqlens_q.data_ptr());
+    // 遍历每个batch进行分核计算
+    for (auto i = 0; i < batch_size; i++) {
+        // 根据useUniformQSeqlen_标志位决定使用actualSeqLengths数组还是maxQSeqlen_
+        int64_t qSeqlen;
+        // 使用actualSeqLengths数组（TND格式或BNSD格式但提供了actualSeqLengths）
+        qSeqlen = qSeqLenList[i];
+
+        uint32_t curTaskNum = 0;
+        uint32_t curQBlockNum = 0;
+        CalculateBatchTaskSplit(qSeqlen, groupSize, curTaskNum, curQBlockNum);
+
+        if (i == 0) {
+            firstBatchTaskNum = curTaskNum;
+            firstQBlockNum = curQBlockNum;
+        }
+        totalTaskNum += curTaskNum;
+        totalQBlocks += curQBlockNum;
+    }
+    blockDim = std::min(blockDim, totalTaskNum);
+
+    int64_t selectIdxSize = CeilDiv(m_block_dim, 128) * CeilDiv(maxKvBlockNum, 32) * 32 * sizeof(uint32_t) * batch_size * numHeads * maxQBlockNum;
+    int64_t selectNumIdxSize = CeilDiv(m_block_dim, 128) * sizeof(uint32_t) * 32 * batch_size * numHeads * maxQBlockNum;
+    int64_t syncSize = sizeof(uint32_t) * 256;
+
+    uint64_t WORKSPACE_BLOCK_SIZE_DB = 131072; // 工作空间块大小
+    uint64_t PRELANCH_NUM = 3;
+
+    uint64_t mm1OutSize = static_cast<uint64_t>(blockDim) * WORKSPACE_BLOCK_SIZE_DB *
+                          sizeof(float) * PRELANCH_NUM;
+    uint64_t smOnlineOutSize = static_cast<uint64_t>(blockDim) * WORKSPACE_BLOCK_SIZE_DB *
+                               2 * PRELANCH_NUM;
+    uint64_t mm2OutSize = static_cast<uint64_t>(blockDim) * WORKSPACE_BLOCK_SIZE_DB *
+                          sizeof(float) * PRELANCH_NUM;
+    uint64_t UpdateSize = static_cast<uint64_t>(blockDim) * WORKSPACE_BLOCK_SIZE_DB *
+                          sizeof(float) * PRELANCH_NUM;
+    int64_t workSpaceSize = libapiSize + mm1OutSize + smOnlineOutSize + mm2OutSize + UpdateSize + selectNumIdxSize + selectIdxSize + syncSize;
+    uint32_t totalTaskNumMask = batch * numHeads * maxQBlockNum;
+    uint32_t avgRowNumPerSubCore = CeilDiv(totalTaskNumMask, blockDim_ * 2);
+    uint32_t preActivateSubCoreNum = CeilDiv(totalTaskNumMask, avgRowNumPerSubCore);
+
+    const int num_heads_k = k.size(1);
+
+    tiling_cpu_ptr->set_batch(static_cast<uint32_t>(batch_size));           // B
+    tiling_cpu_ptr->set_numHeads(static_cast<uint32_t>(num_heads));         // N
+    tiling_cpu_ptr->set_kvHeads(static_cast<uint32_t>(num_heads_k));        // S
+    tiling_cpu_ptr->set_embeddingSize(static_cast<uint32_t>(head_size_og)); // D
+    tiling_cpu_ptr->set_blockSize(0);
+    tiling_cpu_ptr->set_maxNumBlocksPerBatch(static_cast<uint32_t>(max_num_blocks_per_seq)); // 0
+    tiling_cpu_ptr->set_firstBatchTaskNum(firstBatchTaskNum);
+    tiling_cpu_ptr->set_totalTaskNum(totalTaskNum);
+    tiling_cpu_ptr->set_maskType(0);
+    tiling_cpu_ptr->set_scaleValue(softmax_scale);
+    tiling_cpu_ptr->set_totalQBlocks(totalQBlocks);
+    tiling_cpu_ptr->set_firstQBlockNum(firstQBlockNum);
+    tiling_cpu_ptr->set_blockShapeX(m_block_dim);
+    tiling_cpu_ptr->set_blockShapeY(n_block_dim);
+    tiling_cpu_ptr->set_maxKvBlockNum(maxKvBlockNum);
+    tiling_cpu_ptr->set_maxQBlockNum(maxQBlockNum);
+    tiling_cpu_ptr->set_avgRowNumPerSubCore(avgRowNumPerSubCore);
+    tiling_cpu_ptr->set_preActivateSubCoreNum(preActivateSubCoreNum);
+    tiling_cpu_ptr->set_queryLayout(0);
+    tiling_cpu_ptr->set_kvCacheLayout(0);
+    tiling_cpu_ptr->set_maxQSeqlen(max_seqlen_q);
+    tiling_cpu_ptr->set_maxKvSeqlen(max_seqlen_k);
+    tiling_cpu_ptr->set_useUniformQSeqLen(0);
+    tiling_cpu_ptr->set_useUniformKvSeqlen(0);
+    tiling_cpu_ptr->set_selectNumIdxSize(selectNumIdxSize);
+    tiling_cpu_ptr->set_selectIdxSize(selectIdxSize);
+    tiling_cpu_ptr->set_mm1OutSize(mm1OutSize);
+    tiling_cpu_ptr->set_smOnlineOutSize(smOnlineOutSize);
+    tiling_cpu_ptr->set_mm2OutSize(mm2OutSize);
+    tiling_cpu_ptr->set_UpdateSize(UpdateSize);
+    tiling_cpu_ptr->set_workSpaceSize(workSpaceSize);
+
+    at::Tensor workspace_tensor = at::empty({workSpaceSize}, at::device(at::kPrivateUse1).dtype(at::kByte)); // workspace
+    at::Tensor softmaxlse = at::empty({T, num_heads}, at::device(at::kPrivateUse1).dtype(at::kFloat));       // lse
+    softmaxlse.fill_(std::numeric_limits<float>::infinity());
+
+    at::Tensor out;
+    out = torch::empty_like(q);
+
+    uint64_t fftsAddr{0};
+    uint32_t fftsLen{0};
+    rtError_t error = rtGetC2cCtrlAddr(&fftsAddr, &fftsLen);
+    auto qDevice = static_cast<uint8_t *>(const_cast<void *>(q.data_ptr()));
+    auto kDevice = static_cast<uint8_t *>(const_cast<void *>(k.data_ptr()));
+    auto vDevice = static_cast<uint8_t *>(const_cast<void *>(v.data_ptr()));
+    auto blockSparseMaskDevice = static_cast<uint8_t *>(const_cast<void *>(row_blockmask_.data_ptr()));
+    auto oDevice = static_cast<uint8_t *>(const_cast<void *>(out.data_ptr()));
+    auto qSeqDevice = static_cast<uint8_t *>(const_cast<void *>(cu_seqlens_q.data_ptr()));
+    auto kvSeqDevice = static_cast<uint8_t *>(const_cast<void *>(cu_seqlens_k.data_ptr()));
+    auto workspaceDevice = static_cast<uint8_t *>(const_cast<void *>(workspace_tensor.data_ptr()));
+    auto tilingDevice = static_cast<uint8_t *>(const_cast<void *>(tiling_gpu_tensor.data_ptr()));
+    auto softmaxLseDevice = static_cast<uint8_t *>(const_cast<void *>(softmaxlse.data_ptr()));
+
+    if (is_bf16) {
+        if (return_softmax) {
+            BlockSparse::BlockSparseAttentionInfer<half, float, Epilogue::LseMode::OUT_ONLY, 0, 0><<<blockDim, nullptr, aclStream>>>(
+                fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
+                qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
+        } else {
+            BlockSparse::BlockSparseAttentionInfer<half, float, Epilogue::LseMode::NONE, 0, 0><<<blockDim, nullptr, aclStream>>>(
+                fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
+                qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
+        }
+    } else {
+        if (return_softmax) {
+            BlockSparse::BlockSparseAttentionInfer<bfloat16_t, float, Epilogue::LseMode::OUT_ONLY, 0, 0><<<blockDim, nullptr, aclStream>>>(
+                fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
+                qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
+        } else {
+            BlockSparse::BlockSparseAttentionInfer<bfloat16_t, float, Epilogue::LseMode::NONE, 0, 0><<<blockDim, nullptr, aclStream>>>(
+                fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
+                qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
+        }
+    }
+
+    auto options = torch::TensorOptions().dtype(torch::kFloat32).device(at::Device(at::kPrivateUse1));
+    at::Tensor rng_state = torch::empty({2}, options.dtype(torch::kInt64));
+    at::Tensor p = torch::empty({0}, options.dtype(torch::kInt64));
+    return {out, softmaxlse, p, rng_state};
 }
 
 std::vector<at::Tensor>
