@@ -26,6 +26,8 @@
 #include "lib/matmul_intf.h"
 #include "kernel_operator.h"
 #include "kernel_common.hpp"
+#include "fa_block.h"
+#include "tilingdata.h"
 
 using namespace Catlass;
 using namespace RfaKenelCommon;
@@ -83,7 +85,7 @@ namespace BlockSparse {
         using ElementUpdate = typename EpilogueRescaleO::ElementUpdate;
         using LayoutUpdate = typename EpilogueRescaleO::LayoutUpdate;
 
-        static constexpr Epilogue::LseModeT LSE_MODE = EpilogueRescaleO::LSE_MODE;
+        static constexpr Epilogue::LseMode LSE_MODE = EpilogueRescaleO::LSE_MODE;
         static constexpr int32_t BASIC_BLOCK = 64;
         static constexpr uint32_t LS_UB_TENSOR_OFFSET = 0;
         static constexpr uint32_t MASK_PATTERN_HALF_OFFSET = BASIC_BLOCK * 2 + LS_UB_TENSOR_OFFSET;
@@ -803,7 +805,7 @@ namespace BlockSparse {
 template <
     typename InputDtype = half,
     typename SoftmaxDtype = float,
-    Epilogue::LseModeT lseMode = Epilogue::LseModeT::NONE,
+    Epilogue::LseMode lseMode = Epilogue::LseMode::NONE,
     uint32_t QueryLayout = 0,      // 0=TND, 1=BNSD
     uint32_t KvCacheLayout = 0>    // 0=TND, 1=BNSD
 __global__ __aicore__ void BlockSparseAttentionInfer(

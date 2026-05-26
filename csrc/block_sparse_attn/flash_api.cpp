@@ -889,21 +889,21 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
 
     if (is_bf16) {
         if (return_softmax) {
-            BlockSparse::BlockSparseAttentionInfer<half, float, Epilogue::LseModeT::OUT_ONLY, 0, 0><<<blockDim, nullptr, aclStream>>>(
+            BlockSparse::BlockSparseAttentionInfer<half, float, Epilogue::LseMode::OUT_ONLY, 0, 0><<<blockDim, nullptr, aclStream>>>(
                 fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
                 qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
         } else {
-            BlockSparse::BlockSparseAttentionInfer<half, float, Epilogue::LseModeT::NONE, 0, 0><<<blockDim, nullptr, aclStream>>>(
+            BlockSparse::BlockSparseAttentionInfer<half, float, Epilogue::LseMode::NONE, 0, 0><<<blockDim, nullptr, aclStream>>>(
                 fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
                 qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
         }
     } else {
         if (return_softmax) {
-            BlockSparse::BlockSparseAttentionInfer<bfloat16_t, float, Epilogue::LseModeT::OUT_ONLY, 0, 0><<<blockDim, nullptr, aclStream>>>(
+            BlockSparse::BlockSparseAttentionInfer<bfloat16_t, float, Epilogue::LseMode::OUT_ONLY, 0, 0><<<blockDim, nullptr, aclStream>>>(
                 fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
                 qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
         } else {
-            BlockSparse::BlockSparseAttentionInfer<bfloat16_t, float, Epilogue::LseModeT::NONE, 0, 0><<<blockDim, nullptr, aclStream>>>(
+            BlockSparse::BlockSparseAttentionInfer<bfloat16_t, float, Epilogue::LseMode::NONE, 0, 0><<<blockDim, nullptr, aclStream>>>(
                 fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
                 qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
         }
