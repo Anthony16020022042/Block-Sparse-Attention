@@ -12,6 +12,18 @@
  * \file block_sparse_attention_interface.cpp
  * \brief Block Sparse Attention Interface
  */
+#include "catlass/catlass.hpp"
+#include "catlass/arch/arch.hpp"
+#include "catlass/layout/layout.hpp"
+#include "catlass/gemm/block/block_mmad.hpp"
+#include "catlass/epilogue/dispatch_policy.hpp"
+#include "catlass/gemm/gemm_type.hpp"
+#include "catlass/arch/cross_core_sync.hpp"
+#include "catlass/arch/resource.hpp"
+#include "catlass/epilogue/block/block_epilogue.hpp"
+#include "catlass/epilogue/dispatch_policy.hpp"
+
+#include "lib/matmul_intf.h"
 #include "kernel_operator.h"
 #include "block_sparse_attention_kernel_regular_arch32.h"
 

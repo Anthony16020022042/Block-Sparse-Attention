@@ -11,22 +11,6 @@
 #ifndef BLOCK_SPARSE_ATTENTION_KERNEL_COMMON_HPP
 #define BLOCK_SPARSE_ATTENTION_KERNEL_COMMON_HPP
 
-#include "catlass/catlass.hpp"
-#include "catlass/arch/arch.hpp"
-#include "catlass/layout/layout.hpp"
-
-#include "catlass/gemm/block/block_mmad.hpp"
-#include "catlass/gemm/dispatch_policy.hpp"
-#include "catlass/gemm/gemm_type.hpp"
-
-#include "catlass/arch/cross_core_sync.hpp"
-#include "catlass/arch/resource.hpp"
-#include "catlass/epilogue/block/block_epilogue.hpp"
-#include "catlass/epilogue/dispatch_policy.hpp"
-#include "kernel_operator.h"
-#include "lib/matmul_intf.h"
-#include "kernel_tiling/kernel_tiling.h"
-
 using namespace AscendC;
 using namespace matmul;
 
