@@ -28,7 +28,7 @@
 #include "kernel_common.hpp"
 
 using namespace Catlass;
-using namespace RfaKenelCommon
+using namespace RfaKenelCommon;
 
 namespace BlockSparse {
     /**
