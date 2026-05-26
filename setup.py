@@ -98,6 +98,7 @@ class BishengBuildExt(build_ext):
             "-fPIC",
             "-std=c++17",
             abi_flag,
+            "-DCATLASS_ARCH=2201",
             *[f"-I{p}" for p in asc_config["include_dirs"]],
             f"-I{dep_paths['python']['include']}",
             f"-I{dep_paths['torch_npu']['include']}",
