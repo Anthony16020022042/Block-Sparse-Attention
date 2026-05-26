@@ -867,11 +867,11 @@ __global__ __aicore__ void BlockSparseAttentionInfer(
                                             PType, VType, OTmpType>;
 
     // Epilogue policies for sparse attention
-    using DispatchPolicyOnlineSoftmax = Epilogue::EpilogueAtlasA2OnlineSoftmax<lseMode, SoftmaxDtype>;
+    using DispatchPolicyOnlineSoftmax = Epilogue::EpilogueAtlasA2OnlineSoftmaxT<lseMode, SoftmaxDtype>;
     using MaskType = Gemm::GemmType<ElementMask, LayoutMask>;
     using EpilogueOnlineSoftmax = Epilogue::Block::BlockEpilogue<DispatchPolicyOnlineSoftmax,
         PType, SType, MaskType>;
-    using DispatchPolicyRescaleO = Epilogue::EpilogueAtlasA2RescaleO<lseMode, SoftmaxDtype>;
+    using DispatchPolicyRescaleO = Epilogue::EpilogueAtlasA2RescaleOT<lseMode, SoftmaxDtype>;
     using OType = Gemm::GemmType<ElementO, LayoutO>;
     using OUpdateType = Gemm::GemmType<ElementUpdate, LayoutUpdate>;
     using LseType = Gemm::GemmType<ElementLse, LayoutLse>;

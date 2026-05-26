@@ -12,7 +12,7 @@ namespace Catlass::Epilogue {
                          OUT_ONLY = 1 };
     // For AtlasA2, FA Infer online Softmax
     template <LseMode LSE_MODE_, typename SM_DTYPE_>
-    struct EpilogueAtlasA2OnlineSoftmax {
+    struct EpilogueAtlasA2OnlineSoftmaxT {
         using ArchTag = Arch::AtlasA2;
         using IntermPrec = SM_DTYPE_;
         static constexpr LseMode LSE_MODE = LSE_MODE_;
@@ -20,24 +20,10 @@ namespace Catlass::Epilogue {
 
     // For AtlasA2, FA Infer RescaleO
     template <LseMode LSE_MODE_, typename SM_DTYPE_>
-    struct EpilogueAtlasA2RescaleO {
+    struct EpilogueAtlasA2RescaleOT {
         using ArchTag = Arch::AtlasA2;
         using IntermPrec = SM_DTYPE_;
         static constexpr LseMode LSE_MODE = LSE_MODE_;
-    };
-
-    // For AtlasA5
-    struct EpilogueBsaMask2Idx {
-        static constexpr uint32_t IO_STAGES = 2;
-        using ArchTag = Arch::AtlasA5;
-    };
-
-    struct EpilogueOnlineSoftmaxBsa {
-        using ArchTag = Arch::AtlasA5;
-    };
-
-    struct EpilogueAtlasA5BsaRescaleO {
-        using ArchTag = Arch::AtlasA5;
     };
 }
 
