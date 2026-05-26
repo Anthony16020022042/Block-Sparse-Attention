@@ -12,14 +12,14 @@
 #define GEMM_BLOCK_MMAD_SFAI_PV_HPP
 
 #include "catlass/catlass.hpp"
-#include "Catlass/arch/resource.hpp"
-#include "Catlass/coord.hpp"
-#include "Catlass/arch/cross_core_sync.hpp"
-#include "Catlass/gemm/dispatch_policy.hpp"
-#include "Catlass/gemm/helper.hpp"
-#include "Catlass/gemm_coord.hpp"
-#include "Catlass/gemm/tile_common/tile_copy.hpp"
-#include "Catlass/gemm/tile_common/tile_mmad.hpp"
+#include "catlass/arch/resource.hpp"
+#include "catlass/coord.hpp"
+#include "catlass/arch/cross_core_sync.hpp"
+#include "catlass/gemm/dispatch_policy.hpp"
+#include "catlass/gemm/helper.hpp"
+#include "catlass/gemm_coord.hpp"
+#include "catlass/gemm/tile_common/tile_copy.hpp"
+#include "catlass/gemm/tile_common/tile_mmad.hpp"
 #include "bsa_block.h"
 ////////////////////////////////////////////////////////////////////
 
