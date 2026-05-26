@@ -28,7 +28,8 @@
 #include "kernel_common.hpp"
 
 using namespace Catlass;
-using namespace NpuArch;
+using namespace RfaKenelCommon
+
 namespace BlockSparse {
     /**
      * @brief Block Sparse Attention Inference Kernel
@@ -82,7 +83,7 @@ namespace BlockSparse {
         using ElementUpdate = typename EpilogueRescaleO::ElementUpdate;
         using LayoutUpdate = typename EpilogueRescaleO::LayoutUpdate;
 
-        static constexpr Epilogue::LseMode LSE_MODE = EpilogueRescaleO::LSE_MODE;
+        static constexpr Epilogue::LseModeT LSE_MODE = EpilogueRescaleO::LSE_MODE;
         static constexpr int32_t BASIC_BLOCK = 64;
         static constexpr uint32_t LS_UB_TENSOR_OFFSET = 0;
         static constexpr uint32_t MASK_PATTERN_HALF_OFFSET = BASIC_BLOCK * 2 + LS_UB_TENSOR_OFFSET;
@@ -802,7 +803,7 @@ namespace BlockSparse {
 template <
     typename InputDtype = half,
     typename SoftmaxDtype = float,
-    Epilogue::LseMode lseMode = Epilogue::LseMode::NONE,
+    Epilogue::LseModeT lseMode = Epilogue::LseModeT::NONE,
     uint32_t QueryLayout = 0,      // 0=TND, 1=BNSD
     uint32_t KvCacheLayout = 0>    // 0=TND, 1=BNSD
 __global__ __aicore__ void BlockSparseAttentionInfer(
