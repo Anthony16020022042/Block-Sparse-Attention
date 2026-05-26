@@ -27,6 +27,8 @@
 #include "kernel_operator.h"
 #include "kernel_common.hpp"
 #include "bsa_block.h"
+#include "block_mmad_qk.hpp"
+#include "block_mmad_pv.hpp"
 #include "tiling_data.h"
 
 using namespace Catlass;
@@ -702,7 +704,7 @@ namespace BlockSparse {
                             qBlockY,
                             curSelectNum,
                             kvYBlockNum);
-                        NpuArch::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(pvReady);
+                        Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(pvReady);
 #endif
 #ifdef __DAV_C220_VEC__
                         // Setup layoutO based on data format
@@ -720,7 +722,7 @@ namespace BlockSparse {
                         LayoutUpdate layoutUpdate(rowNum, embed, embedRound);
                         uint64_t gmOffsetUpdate = (uint64_t)(coreIdx * WORKSPACE_BLOCK_SIZE_DB);
 
-                        NpuArch::Arch::CrossCoreWaitFlag(pvReady);
+                        Arch::CrossCoreWaitFlag(pvReady);
                         // rescale O
                         epilogueRescaleO(
                             gO[gmOffsetO],

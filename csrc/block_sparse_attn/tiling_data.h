@@ -56,7 +56,7 @@ struct BlockSparseAttentionTilingData {
     uint32_t get_kvCacheLayout() const { return kvCacheLayout; }
     uint32_t get_maxQSeqlen() const { return maxQSeqlen; }
     uint32_t get_maxKvSeqlen() const { return maxKvSeqlen; }
-    uint32_t get_useUniformQSeqLen() const { return useUniformQSeqLen; }
+    uint32_t get_useUniformQSeqlen() const { return useUniformQSeqlen; }
     uint32_t get_useUniformKvSeqlen() const { return useUniformKvSeqlen; }
     uint32_t get_selectNumIdxSize() const { return selectNumIdxSize; }
     uint32_t get_selectIdxSize() const { return selectIdxSize; }

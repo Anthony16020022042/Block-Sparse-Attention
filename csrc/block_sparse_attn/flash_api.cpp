@@ -855,14 +855,14 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     tiling_cpu_ptr->set_kvCacheLayout(0);
     tiling_cpu_ptr->set_maxQSeqlen(max_seqlen_q);
     tiling_cpu_ptr->set_maxKvSeqlen(max_seqlen_k);
-    tiling_cpu_ptr->set_useUniformQSeqLen(0);
+    tiling_cpu_ptr->set_useUniformQSeqlen(0);
     tiling_cpu_ptr->set_useUniformKvSeqlen(0);
     tiling_cpu_ptr->set_selectNumIdxSize(selectNumIdxSize);
     tiling_cpu_ptr->set_selectIdxSize(selectIdxSize);
     tiling_cpu_ptr->set_mm1OutSize(mm1OutSize);
     tiling_cpu_ptr->set_smOnlineOutSize(smOnlineOutSize);
     tiling_cpu_ptr->set_mm2OutSize(mm2OutSize);
-    tiling_cpu_ptr->set_UpdateSize(UpdateSize);
+    tiling_cpu_ptr->set_updateSize(UpdateSize);
     tiling_cpu_ptr->set_workSpaceSize(workSpaceSize);
 
     at::Tensor workspace_tensor = at::empty({workSpaceSize}, at::device(at::kPrivateUse1).dtype(at::kByte)); // workspace
@@ -905,7 +905,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
                 qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
         } else {
             BlockSparse::BlockSparseAttentionInfer<bfloat16_t, float, Epilogue::LseMode::NONE, 0, 0><<<blockDim, nullptr, aclStream>>>(
-                fftsAddr, qDevice, kDevice, vDevice, blockSparseMaskDevice, nullptr, nullptr, oDevice,
+                fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
                 qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
         }
     }
