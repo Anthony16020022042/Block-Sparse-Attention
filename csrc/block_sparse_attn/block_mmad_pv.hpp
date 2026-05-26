@@ -18,8 +18,8 @@
 #include "catlass/gemm/dispatch_policy.hpp"
 #include "catlass/gemm/helper.hpp"
 #include "catlass/gemm_coord.hpp"
-#include "catlass/gemm/tile_common/tile_copy.hpp"
-#include "catlass/gemm/tile_common/tile_mmad.hpp"
+#include "catlass/gemm/tile/tile_copy.hpp"
+#include "catlass/gemm/tile/tile_mmad.hpp"
 #include "bsa_block.h"
 ////////////////////////////////////////////////////////////////////
 
