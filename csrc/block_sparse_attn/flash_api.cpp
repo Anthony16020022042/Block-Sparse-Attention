@@ -723,14 +723,14 @@ uint32_t GetQBlocks(int32_t qseqlen, int32_t x)
     return qBlocksInX * completeXBlocks + remainingBlocks;
 }
 
-void CalculateBatchTaskSplit(int64_t qSeqlen, uint32_t groupSize,
+void CalculateBatchTaskSplit(int64_t qSeqlen, uint32_t groupSize, uint32_t kvHeads, uint32_t numHeads, int64_t blockShapeX,
                              uint32_t &curTaskNum, uint32_t &curQBlockNum)
 {
     uint32_t curQBlockTile = GetQNBlockTile();
     uint32_t qNBlockNumPerGroup = CeilDiv(groupSize, curQBlockTile);
-    uint32_t curQNBlockNum = qNBlockNumPerGroup * kvHeads_;
-    curTaskNum = GetQBlocks(qSeqlen, blockShapeX_) * curQNBlockNum;
-    curQBlockNum = CeilDiv(qSeqlen, blockShapeX_) * numHeads_;
+    uint32_t curQNBlockNum = qNBlockNumPerGroup * kvHeads;
+    curTaskNum = GetQBlocks(qSeqlen, blockShapeX) * curQNBlockNum;
+    curQBlockNum = CeilDiv(qSeqlen, blockShapeX) * numHeads;
 }
 
 std::vector<at::Tensor>
@@ -785,6 +785,8 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     int64_t maxQBlockNum = blockMaskSizes[2];
     int64_t maxKvBlockNum = blockMaskSizes[3];
 
+    const int num_heads_k = k.size(1);
+
     uint32_t totalTaskNum = 0;
     uint32_t totalQBlocks = 0;
     uint32_t firstBatchTaskNum = 0;
@@ -799,7 +801,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
 
         uint32_t curTaskNum = 0;
         uint32_t curQBlockNum = 0;
-        CalculateBatchTaskSplit(qSeqlen, 1, curTaskNum, curQBlockNum);
+        CalculateBatchTaskSplit(qSeqlen, 1, num_heads_k, num_heads, m_block_dim, curTaskNum, curQBlockNum);
 
         if (i == 0) {
             firstBatchTaskNum = curTaskNum;
@@ -830,7 +832,6 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     uint32_t avgRowNumPerSubCore = CeilDiv(totalTaskNumMask, blockDim * 2);
     uint32_t preActivateSubCoreNum = CeilDiv(totalTaskNumMask, avgRowNumPerSubCore);
 
-    const int num_heads_k = k.size(1);
 
     tiling_cpu_ptr->set_batch(static_cast<uint32_t>(batch_size));           // B
     tiling_cpu_ptr->set_numHeads(static_cast<uint32_t>(num_heads));         // N
@@ -890,21 +891,21 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     if (is_bf16) {
         if (return_softmax) {
             BlockSparse::BlockSparseAttentionInfer<half, float, Epilogue::LseMode::OUT_ONLY, 0, 0><<<blockDim, nullptr, aclStream>>>(
-                fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
+                fftsAddr, qDevice, kDevice, vDevice, blockSparseMaskDevice, nullptr, nullptr, oDevice,
                 qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
         } else {
             BlockSparse::BlockSparseAttentionInfer<half, float, Epilogue::LseMode::NONE, 0, 0><<<blockDim, nullptr, aclStream>>>(
-                fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
+                fftsAddr, qDevice, kDevice, vDevice, blockSparseMaskDevice, nullptr, nullptr, oDevice,
                 qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
         }
     } else {
         if (return_softmax) {
             BlockSparse::BlockSparseAttentionInfer<bfloat16_t, float, Epilogue::LseMode::OUT_ONLY, 0, 0><<<blockDim, nullptr, aclStream>>>(
-                fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
+                fftsAddr, qDevice, kDevice, vDevice, blockSparseMaskDevice, nullptr, nullptr, oDevice,
                 qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
         } else {
             BlockSparse::BlockSparseAttentionInfer<bfloat16_t, float, Epilogue::LseMode::NONE, 0, 0><<<blockDim, nullptr, aclStream>>>(
-                fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
+                fftsAddr, qDevice, kDevice, vDevice, blockSparseMaskDevice, nullptr, nullptr, oDevice,
                 qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
         }
     }

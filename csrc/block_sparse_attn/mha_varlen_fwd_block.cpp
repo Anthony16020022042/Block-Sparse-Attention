@@ -26,7 +26,7 @@
 #include "lib/matmul_intf.h"
 #include "kernel_operator.h"
 #include "kernel_common.hpp"
-#include "fa_block.h"
+#include "bsa_block.h"
 #include "tiling_data.h"
 
 using namespace Catlass;
@@ -638,14 +638,14 @@ namespace BlockSparse {
                             curSelectNum,
                             kvYBlockNum,
                             kvSeqlen);
-                        NpuArch::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(qkReady);
+                        Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(qkReady);
 #endif
 #ifdef __DAV_C220_VEC__
                         // Stage 2: Online softmax (computed on VECTOR core)
                         LayoutP layOutP(rowNum, stackSeqTile, stackSeqTilePad);
                         uint64_t gmOffsetP = gmOffsetS;
 
-                        NpuArch::Arch::CrossCoreWaitFlag(qkReady);
+                        Arch::CrossCoreWaitFlag(qkReady);
                         // online softmax
                         epilogueOnlineSoftmax(gP[gmOffsetP],
                             gS[gmOffsetS],

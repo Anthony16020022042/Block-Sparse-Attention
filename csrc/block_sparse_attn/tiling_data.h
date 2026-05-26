@@ -24,14 +24,14 @@ struct BlockSparseAttentionTilingData {
     uint32_t kvCacheLayout;
     uint32_t maxQSeqlen;
     uint32_t maxKvSeqlen;
-    uint32_t useUniformQSeqLen;
+    uint32_t useUniformQSeqlen;
     uint32_t useUniformKvSeqlen;
     uint64_t selectNumIdxSize;
     uint64_t selectIdxSize;
     uint64_t mm1OutSize;
     uint64_t smOnlineOutSize;
     uint64_t mm2OutSize;
-    uint64_t UpdateSize;
+    uint64_t updateSize;
     uint64_t workSpaceSize;
 
     uint32_t get_batch() const { return batch; }
@@ -63,7 +63,7 @@ struct BlockSparseAttentionTilingData {
     uint64_t get_mm1OutSize() const { return mm1OutSize; }
     uint64_t get_smOnlineOutSize() const { return smOnlineOutSize; }
     uint64_t get_mm2OutSize() const { return mm2OutSize; }
-    uint64_t get_UpdateSize() const { return UpdateSize; }
+    uint64_t get_updateSize() const { return updateSize; }
     uint64_t get_workSpaceSize() const { return workSpaceSize; }
 
     void set_batch(uint32_t value) { batch = value; }
@@ -88,14 +88,14 @@ struct BlockSparseAttentionTilingData {
     void set_kvCacheLayout(uint32_t value) { kvCacheLayout = value; }
     void set_maxQSeqlen(uint32_t value) { maxQSeqlen = value; }
     void set_maxKvSeqlen(uint32_t value) { maxKvSeqlen = value; }
-    void set_useUniformQSeqLen(uint32_t value) { useUniformQSeqLen = value; }
+    void set_useUniformQSeqlen(uint32_t value) { useUniformQSeqlen = value; }
     void set_useUniformKvSeqlen(uint32_t value) { useUniformKvSeqlen = value; }
     void set_selectNumIdxSize(uint64_t value) { selectNumIdxSize = value; }
     void set_selectIdxSize(uint64_t value) { selectIdxSize = value; }
     void set_mm1OutSize(uint64_t value) { mm1OutSize = value; }
     void set_smOnlineOutSize(uint64_t value) { smOnlineOutSize = value; }
     void set_mm2OutSize(uint64_t value) { mm2OutSize = value; }
-    void set_UpdateSize(uint64_t value) { UpdateSize = value; }
+    void set_updateSize(uint64_t value) { updateSize = value; }
     void set_workSpaceSize(uint64_t value) { workSpaceSize = value; }
 };
 
