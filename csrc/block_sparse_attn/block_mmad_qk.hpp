@@ -11,7 +11,7 @@
 #ifndef GEMM_BLOCK_MMAD_SFAI_QK_HPP
 #define GEMM_BLOCK_MMAD_SFAI_QK_HPP
 
-#include "Catlass/base_defs.hpp"
+#include "catlass/catlass.hpp"
 #include "Catlass/arch/resource.hpp"
 #include "Catlass/coord.hpp"
 #include "Catlass/gemm/dispatch_policy.hpp"
