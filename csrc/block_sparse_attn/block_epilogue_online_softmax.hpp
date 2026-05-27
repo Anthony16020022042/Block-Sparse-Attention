@@ -11,11 +11,11 @@
 #ifndef EPILOGUE_BLOCK_BLOCK_EPILOGUE_ONLINE_SOFTMAX_HPP
 #define EPILOGUE_BLOCK_BLOCK_EPILOGUE_ONLINE_SOFTMAX_HPP
 
-#include "catlass/base_defs.hpp"
+#include "catlass/catlass.hpp"
 #include "catlass/arch/cross_core_sync.hpp"
 #include "catlass/arch/resource.hpp"
 #include "catlass/epilogue/dispatch_policy.hpp"
-#include "catlass/epilogue/tile_common/tile_copy.hpp"
+#include "catlass/epilogue/tile/tile_copy.hpp"
 #include "catlass/gemm_coord.hpp"
 #include "catlass/matrix_coord.hpp"
 
