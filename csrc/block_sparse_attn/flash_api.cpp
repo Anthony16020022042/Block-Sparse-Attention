@@ -905,7 +905,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
                 qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
         } else {
             BlockSparse::BlockSparseAttentionInfer<bfloat16_t, float, Epilogue::LseMode::NONE, 0, 0><<<blockDim, nullptr, aclStream>>>(
-                fftsAddr, qDevice, kDevice, vDevice, blockSparseMask, nullptr, nullptr, oDevice,
+                fftsAddr, qDevice, kDevice, vDevice, blockSparseMaskDevicec:\工作\仓库\CANN\ops-transformer\attention\block_sparse_attention\op_kernel\attn_infra\epilogue\block\block_epilogue_online_softmax.hpp, nullptr, nullptr, oDevice,
                 qSeqDevice, kvSeqDevice, nullptr, workspaceDevice, softmaxLseDevice, tilingDevice);
         }
     }
