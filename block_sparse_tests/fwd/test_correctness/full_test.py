@@ -2,6 +2,7 @@
 
 import pytest
 import torch
+import torch_npu
 from einops import repeat
 from block_sparse_attn import (
     block_sparse_attn_func,
