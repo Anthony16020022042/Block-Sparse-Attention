@@ -35,7 +35,7 @@ class BlockEpilogue<
 {
 public:
     // Type aliases
-    using DispatchPolicy = EpilogueAtlasA2RescaleO<LSE_MODE_, half>;
+    using DispatchPolicy = EpilogueAtlasA2RescaleOT<LSE_MODE_, half>;
     using ArchTag = typename DispatchPolicy::ArchTag;
 
     using ElementOutput = typename OutputType_::Element;
