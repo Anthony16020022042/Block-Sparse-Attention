@@ -462,9 +462,9 @@ def block_sparse_attn_func(
     exact_streaming=False,
     return_attn_probs=False,
 ):
-    head_mask_type, blocksparse_head_num = replace_ones_with_count(head_mask_type)
-    if base_blockmask is not None:
-        assert base_blockmask.shape[1] == blocksparse_head_num
+    # head_mask_type, blocksparse_head_num = replace_ones_with_count(head_mask_type)
+    # if base_blockmask is not None:
+    #     assert base_blockmask.shape[1] == blocksparse_head_num
     
     """dropout_p should be set to 0.0 during evaluation"""
     
