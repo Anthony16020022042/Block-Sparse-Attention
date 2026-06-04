@@ -781,7 +781,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     int T = sizes[0];
     int num_heads = sizes[1];
     const int head_size_og = sizes[2];
-    const int batch_size = cu_seqlens_q.numel() - 1;
+    const int batch_size = cu_seqlens_q.numel();
     auto blockMaskSizes = row_blockmask_.value().sizes();
     int64_t maxQBlockNum = blockMaskSizes[2];
     int64_t maxKvBlockNum = blockMaskSizes[3];

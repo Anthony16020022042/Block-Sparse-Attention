@@ -45,8 +45,8 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     query = (q_min_range + (q_max_range - q_min_range) * torch.rand(batch_size * q_seqlen, num_heads, head_size)).to(data_type).npu()
     key = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(batch_size * kv_seqlen, kv_heads, head_size)).to(data_type).npu()
     value = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(batch_size * kv_seqlen, kv_heads, head_size)).to(data_type).npu()
-    actual_seq_len = torch.tensor([q_seqlen * i for i in range(batch_size + 1)], dtype=torch.int32).npu()
-    actual_kv_len = torch.tensor([kv_seqlen * i for i in range(batch_size + 1)], dtype=torch.int32).npu()
+    actual_seq_len = torch.full((batch_size,), q_seqlen, dtype=torch.int32, device="npu:0")
+    actual_kv_len = torch.full((batch_size,), q_seqlen, dtype=torch.int32, device="npu:0")
 
     max_seqlen_q = q_seqlen
     max_seqlen_k = kv_seqlen
@@ -63,7 +63,7 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     sparsity_list = [sparsity] * num_heads
     block_size = 128
     base_blockmask = generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, block_size, block_size, block_size, batch_size, num_heads, sparsity_list)
-    print("[wjc] start")
+    printf("[wjc] start")
     out_unpad, sm_lse, S_dmask = block_sparse_attn_func(
         query, 
         key, 
