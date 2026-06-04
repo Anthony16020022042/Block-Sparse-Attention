@@ -152,7 +152,7 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 source_files = glob.glob(os.path.join(BASE_DIR, "csrc/block_sparse_attn", "flash_api.cpp"), recursive=True)
 
 ext_modules.append(Extension(
-    name="block_sparse_attn",
+    name="block_sparse_attn_C",
     sources=source_files,
     language="c++",
 ))

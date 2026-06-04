@@ -166,7 +166,7 @@ def _block_sparse_attn_forward(
     window_size_right: int
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     q, k, v = [maybe_contiguous(x) for x in (q, k, v)]
-    out, softmax_lse, S_dmask, rng_state = block_sparse_attn.fwd_block(
+    out, softmax_lse, S_dmask, rng_state = block_sparse_attn_C.fwd_block(
         q, k, v,
         cu_seqlens_q, cu_seqlens_k,
         head_mask_type,
@@ -259,7 +259,7 @@ def _block_sparse_attn_backward(
     rng_state: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     dout, q, k, v, out = [maybe_contiguous(x) for x in (dout, q, k, v, out)]
-    dq, dk, dv, softmax_d = block_sparse_attn.bwd_block(
+    dq, dk, dv, softmax_d = block_sparse_attn_C.bwd_block(
         dout,
         q, k, v,
         out,
