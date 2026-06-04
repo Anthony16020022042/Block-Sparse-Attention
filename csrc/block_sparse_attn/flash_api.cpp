@@ -792,7 +792,9 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     uint32_t totalQBlocks = 0;
     uint32_t firstBatchTaskNum = 0;
     uint32_t firstQBlockNum = 0;
-    const int32_t *qSeqLenList = static_cast<const int32_t *>(cu_seqlens_q.data_ptr());
+    auto cu_seqlens_q_cpu = cu_seqlens_q.to(at::kcpu); // kernel->host
+    const int32_t *qSeqLenList = static_cast<const int32_t *>(cu_seqlens_q_cpu.data_ptr());
+
     // 遍历每个batch进行分核计算
     for (auto i = 0; i < batch_size; i++) {
         // 根据useUniformQSeqlen_标志位决定使用actualSeqLengths数组还是maxQSeqlen_
