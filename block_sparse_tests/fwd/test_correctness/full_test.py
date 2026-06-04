@@ -57,7 +57,7 @@ is_sm90 = torch.cuda.get_device_capability("cuda") == (9, 0)
     ]
 )
 
-@pytest.mark.parametrize("p_dropout", [0.17, 0.0])
+@pytest.mark.parametrize("p_dropout", [0.17,= 0.0])
 @pytest.mark.parametrize("sparsity", [0, 0.1, 0.3, 0.7, 1.0])
 @pytest.mark.parametrize("batch_size", [1, 2])
 @pytest.mark.parametrize("nheads", [16, 32])

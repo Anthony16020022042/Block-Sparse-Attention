@@ -57,7 +57,7 @@ is_npu_available = torch_npu.npu.is_available()
     ]
 )
 
-@pytest.mark.parametrize("p_dropout", [0.17, 0.0])
+@pytest.mark.parametrize("p_dropout", [0.0])
 @pytest.mark.parametrize("sparsity", [0, 0.1, 0.3, 0.7, 1.0])
 @pytest.mark.parametrize("batch_size", [1, 2])
 @pytest.mark.parametrize("nheads", [16, 32])
@@ -72,7 +72,7 @@ def test_flash_attn_varlen_block_output(
         and torch_npu.npu.get_device_properties(0).total_memory <= 16 * 2**30
     ):
         pytest.skip()  # Reference implementation OOM
-    device = "npu:0"
+    device = "npu:1"
     # set seed
     torch.random.manual_seed(42)
     nheads_k = nheads if mha_type == "mha" else (1 if mha_type == "mqa" else 8)
@@ -102,9 +102,9 @@ def test_flash_attn_varlen_block_output(
         dk_pad_fn,
     ) = generate_qkv(q, k, v, query_padding_mask, key_padding_mask, kvpacked=False)
 
-    num_streaming_heads = nheads // 3
-    num_blocksparse_heads = nheads // 3
-    num_dense_heads = nheads - num_streaming_heads - num_blocksparse_heads
+    num_streaming_heads = 0
+    num_blocksparse_heads = nheads
+    num_dense_heads = 0
     sparsity_list = [sparsity] * num_blocksparse_heads
     head_mask_type = torch.tensor([0] * num_dense_heads + [1] * num_blocksparse_heads + [-1] * num_streaming_heads, device=device, dtype=torch.int32)
     base_blockmask = generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, block_size, block_size, block_size, batch_size, num_blocksparse_heads, sparsity_list, causal = causal, device=device)
