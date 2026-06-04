@@ -63,7 +63,7 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     sparsity_list = [sparsity] * num_heads
     block_size = 128
     base_blockmask = generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, block_size, block_size, block_size, batch_size, num_heads, sparsity_list)
-
+    printf("[wjc] start")
     out_unpad, sm_lse, S_dmask = block_sparse_attn_func(
         query, 
         key, 
@@ -82,3 +82,4 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
         exact_streaming=False,
         return_attn_probs=return_attn_probs,
     )
+    printf("[wjc] end")
