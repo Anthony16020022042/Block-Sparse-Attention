@@ -4,6 +4,33 @@ import torch_npu
 from einops import repeat
 from block_sparse_attn import block_sparse_attn_func
 
+def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_dim, n_block_dim, batch_size, num_blocksparse_heads, sparsity_list, causal=False, device="npu:0"):
+    assert len(sparsity_list) == num_blocksparse_heads
+    def round_to_multiple(x, base):
+        return ((x + base - 1) // base) * base
+    
+    nrow, ncol = round_to_multiple(max_seqlen_q, round_base) // m_block_dim, round_to_multiple(max_seqlen_k, round_base) // n_block_dim
+    base_mask = torch.zeros(batch_size, num_blocksparse_heads, nrow, ncol, device=device, dtype=torch.bool)
+    
+    for batch in range(batch_size):
+        for head_rank in range(num_blocksparse_heads):
+            sparsity = sparsity_list[head_rank]
+            if not sparsity == 0.0 and not sparsity == 1.0:
+                for i in range(nrow):
+                    idx = nrow - i - 1
+                    if causal:
+                        available_col_num = max(0, ncol - i)
+                        num_one = max(1, int(sparsity * available_col_num))
+                        base_mask[batch][head_rank][idx, torch.randperm(available_col_num)[:num_one]] = True
+                    else:
+                        available_col_num = ncol
+                        num_one = max(1, int(sparsity * available_col_num))
+                        base_mask[batch][head_rank][idx, torch.randperm(available_col_num)[:num_one]] = True
+            elif sparsity == 1.0:
+                base_mask[batch][head_rank] = torch.ones_like(base_mask[batch][head_rank])
+                
+    return base_mask
+
 test_cases = [
     # (data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, is_causal)
     (torch.bfloat16, 1, 1, 1, 512, 1024, 128, True)
@@ -31,7 +58,11 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     block_table = None
     head_mask_type = torch.tensor([0] * num_heads, device="npu:0", dtype=torch.int32)
     streaming_info = None
-    base_blockmask = None
+
+    sparsity = 0.7
+    sparsity_list = [sparsity] * num_heads
+    block_size = 128
+    base_blockmask = generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, block_size, block_size, block_size, batch_size, num_heads, sparsity_list)
 
     out_unpad, sm_lse, S_dmask = block_sparse_attn_func(
         query, 
