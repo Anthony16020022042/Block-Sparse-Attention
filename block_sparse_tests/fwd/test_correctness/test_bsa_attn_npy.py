@@ -64,7 +64,7 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     block_size = 128
     base_blockmask = generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, block_size, block_size, block_size, batch_size, num_heads, sparsity_list)
     print("[wjc] start")
-    out_unpad, sm_lse, S_dmask,_ = block_sparse_attn_func(
+    result = block_sparse_attn_func(
         query, 
         key, 
         value,
@@ -83,3 +83,20 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
         return_attn_probs=return_attn_probs,
     )
     print("[wjc] end")
+    # ==========================================
+    # 🔥 万能打印：自动识别类型、长度、内容、shape
+    # ==========================================
+    print("\n" + "="*50)
+    print("📌 函数返回结果类型:", type(result))
+    print("📌 长度/元素个数:", len(result) if isinstance(result, (list, tuple)) else "不是列表")
+
+    # 逐个打印每个返回值
+    for idx, item in enumerate(result):
+        print(f"\n返回值 [{idx}] 类型: {type(item)}")
+        if hasattr(item, 'shape'):
+            print(f"           shape: {item.shape}")
+        if hasattr(item, 'dtype'):
+            print(f"           dtype: {item.dtype}")
+        print(f"           内容: {item}")
+
+    print("="*50 + "\n")
