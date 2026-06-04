@@ -801,7 +801,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
 
         uint32_t curTaskNum = 0;
         uint32_t curQBlockNum = 0;
-        CalculateBatchTaskSplit(qSeqlen, 1, num_heads_k, num_heads, m_block_dim, curTaskNum, curQBlockNum);
+        CalculateBatchTaskSplit(qSeqlen, num_heads/num_heads_k, num_heads_k, num_heads, m_block_dim, curTaskNum, curQBlockNum);
 
         if (i == 0) {
             firstBatchTaskNum = curTaskNum;
