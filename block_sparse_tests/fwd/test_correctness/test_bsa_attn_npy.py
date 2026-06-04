@@ -29,7 +29,7 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     window_size_right = -1
     return_attn_probs = False
     block_table = None
-    head_mask_type = None
+    head_mask_type = torch.tensor([0] * num_heads, device=npu:0, dtype=torch.int32)
     streaming_info = None
     base_blockmask = None
 
