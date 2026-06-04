@@ -775,6 +775,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     TORCH_CHECK(q.stride(-1) == 1, "Input tensor must have contiguous last dimension");
     TORCH_CHECK(k.stride(-1) == 1, "Input tensor must have contiguous last dimension");
     TORCH_CHECK(v.stride(-1) == 1, "Input tensor must have contiguous last dimension");
+    TORCH_CHECK(row_blockmask_.has_value(), "Row block mask is not initialized");
 
     const auto sizes = q.sizes();
     int T = sizes[0];
