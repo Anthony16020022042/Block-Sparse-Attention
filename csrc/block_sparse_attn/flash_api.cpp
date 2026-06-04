@@ -949,7 +949,7 @@ mha_varlen_bwd_block(const at::Tensor &dout,           // total_q x num_heads, x
     return result;
 }
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+PYBIND11_MODULE(block_sparse_attn_C, m)
 {
     m.doc() = "BlockSparseAttention";
     m.def("fwd_block", &mha_varlen_fwd_block, "Forward pass, with blockmask");
