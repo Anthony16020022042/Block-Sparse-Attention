@@ -413,7 +413,7 @@ class BlockSparseAttnFunc(torch.autograd.Function):
         if head_size_og % 8 != 0:
             dout_padded = torch.nn.functional.pad(dout, [0, 8 - head_size_og % 8])
         if base_blockmask is not None:
-            row_blockmask = base_blockmask.to(dtype=torch.uint8).contiguous()
+            col_blockmas = base_blockmask.to(dtype=torch.uint8).contiguous()
         else:
             col_blockmask = None
             
