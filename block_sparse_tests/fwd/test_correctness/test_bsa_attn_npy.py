@@ -36,6 +36,15 @@ test_cases = [
     (torch.bfloat16, 1, 1, 1, 128, 128, 128, True)
 ]
 
+def print_tensor_full(name, tensor):
+    # 先打印基础信息
+    print(f"\n===== {name} 完整数值 =====")
+    print(f"shape: {tensor.shape}  dtype: {tensor.dtype}  device: {tensor.device}")
+    
+    # 打印真实值（自动转到CPU打印）
+    print("数值内容：")
+    print(tensor.detach().cpu())
+
 @pytest.mark.parametrize("data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, is_causal", test_cases)
 def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, is_causal):
     q_min_range = -5.0
@@ -46,7 +55,14 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     key = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(batch_size * kv_seqlen, kv_heads, head_size)).to(data_type).npu()
     value = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(batch_size * kv_seqlen, kv_heads, head_size)).to(data_type).npu()
     actual_seq_len = torch.full((batch_size,), q_seqlen, dtype=torch.int64, device="npu:0")
-    actual_kv_len = torch.full((batch_size,), q_seqlen, dtype=torch.int64, device="npu:0")
+    actual_kv_len = torch.full((batch_size,), kv_seqlen, dtype=torch.int64, device="npu:0")
+
+    print_tensor_full("query", query)
+    print_tensor_full("key", key)
+    print_tensor_full("value", value)
+    print_tensor_full("actual_seq_len", actual_seq_len)
+    print_tensor_full("actual_kv_len", actual_kv_len)
+
 
     max_seqlen_q = q_seqlen
     max_seqlen_k = kv_seqlen
