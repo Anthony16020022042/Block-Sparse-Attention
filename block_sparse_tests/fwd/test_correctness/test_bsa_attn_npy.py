@@ -29,7 +29,7 @@ def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_
             elif sparsity == 1.0:
                 base_mask[batch][head_rank] = torch.ones_like(base_mask[batch][head_rank])
                 
-    return base_mask
+    return base_mask.to(torch.uint8)
 
 test_cases = [
     # (data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, is_causal)
