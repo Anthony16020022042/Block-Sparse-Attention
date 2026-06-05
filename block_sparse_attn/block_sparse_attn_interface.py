@@ -357,7 +357,7 @@ class BlockSparseAttnFunc(torch.autograd.Function):
             k = torch.nn.functional.pad(k, [0, 8 - head_size_og % 8])
             v = torch.nn.functional.pad(v, [0, 8 - head_size_og % 8])
         if base_blockmask is not None:
-            row_blockmask = convert_blockmask_row_reverse(base_blockmask, is_causal)
+            row_blockmask = base_blockmask.to(dtype=torch.uint8).contiguous()
         else:
             row_blockmask = None
         
@@ -413,7 +413,7 @@ class BlockSparseAttnFunc(torch.autograd.Function):
         if head_size_og % 8 != 0:
             dout_padded = torch.nn.functional.pad(dout, [0, 8 - head_size_og % 8])
         if base_blockmask is not None:
-            col_blockmask = convert_blockmask_col_reverse(base_blockmask, ctx.is_causal)
+            row_blockmask = base_blockmask.to(dtype=torch.uint8).contiguous()
         else:
             col_blockmask = None
             
