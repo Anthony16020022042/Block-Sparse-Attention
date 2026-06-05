@@ -29,7 +29,7 @@ def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_
             elif sparsity == 1.0:
                 base_mask[batch][head_rank] = torch.ones_like(base_mask[batch][head_rank])
                 
-    return base_mask.to(torch.uint8)
+    return base_mask.to(torch.int8)
 
 test_cases = [
     # (data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, is_causal)
@@ -45,8 +45,8 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     query = (q_min_range + (q_max_range - q_min_range) * torch.rand(batch_size * q_seqlen, num_heads, head_size)).to(data_type).npu()
     key = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(batch_size * kv_seqlen, kv_heads, head_size)).to(data_type).npu()
     value = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(batch_size * kv_seqlen, kv_heads, head_size)).to(data_type).npu()
-    actual_seq_len = torch.full((batch_size,), q_seqlen, dtype=torch.int32, device="npu:0")
-    actual_kv_len = torch.full((batch_size,), q_seqlen, dtype=torch.int32, device="npu:0")
+    actual_seq_len = torch.full((batch_size,), q_seqlen, dtype=torch.int64, device="npu:0")
+    actual_kv_len = torch.full((batch_size,), q_seqlen, dtype=torch.int64, device="npu:0")
 
     max_seqlen_q = q_seqlen
     max_seqlen_k = kv_seqlen
