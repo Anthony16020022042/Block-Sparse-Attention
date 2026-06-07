@@ -840,7 +840,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     tiling_cpu_ptr->set_numHeads(static_cast<uint32_t>(num_heads));         // N
     tiling_cpu_ptr->set_kvHeads(static_cast<uint32_t>(num_heads_k));        // S
     tiling_cpu_ptr->set_embeddingSize(static_cast<uint32_t>(head_size_og)); // D
-    tiling_cpu_ptr->set_blockSize(0);
+    tiling_cpu_ptr->set_blockSize(128);
     tiling_cpu_ptr->set_maxNumBlocksPerBatch(static_cast<uint32_t>(0)); // 0
     tiling_cpu_ptr->set_firstBatchTaskNum(firstBatchTaskNum);
     tiling_cpu_ptr->set_totalTaskNum(totalTaskNum);

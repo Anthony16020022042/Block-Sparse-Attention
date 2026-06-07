@@ -1,8 +1,9 @@
 import pytest
 import torch
 import torch_npu
-from einops import repeat
+from einops import rearrange, repeat
 from block_sparse_attn import block_sparse_attn_func
+from block_sparse_attn.block_sparse_attn_golden import block_sparse_attn_golden
 
 def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_dim, n_block_dim, batch_size, num_blocksparse_heads, sparsity_list, causal=False, device="npu:0"):
     assert len(sparsity_list) == num_blocksparse_heads
@@ -116,3 +117,59 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
         print(f"           内容: {item}")
 
     print("="*50 + "\n")
+
+    # ========== golden 对比 ==========
+    # 构建标准 cu_seqlens（累积格式）用于 un-padded <-> padded 转换
+    cu_seqlens_q = torch.arange(
+        0, (batch_size + 1) * q_seqlen, step=q_seqlen,
+        dtype=torch.int32, device="npu:0"
+    )
+    cu_seqlens_k = torch.arange(
+        0, (batch_size + 1) * kv_seqlen, step=kv_seqlen,
+        dtype=torch.int32, device="npu:0"
+    )
+
+    # NPU 输出是 un-padded, 转回 padded
+    out_npu = result  # (total_tokens, num_heads, head_size)
+    out_npu_pad = torch.zeros(
+        batch_size, q_seqlen, num_heads, head_size,
+        dtype=out_npu.dtype, device=out_npu.device
+    )
+    for b in range(batch_size):
+        s = cu_seqlens_q[b].item()
+        e = cu_seqlens_q[b + 1].item()
+        out_npu_pad[b, :e - s] = out_npu[s:e]
+
+    # 从 un-padded QKV 还原 padded QKV
+    q_pad = rearrange(query, "(b s) h d -> b s h d", b=batch_size, s=q_seqlen)
+    k_pad = rearrange(key,   "(b s) h d -> b s h d", b=batch_size, s=kv_seqlen)
+    v_pad = rearrange(value, "(b s) h d -> b s h d", b=batch_size, s=kv_seqlen)
+
+    # Golden 参考
+    out_golden = block_sparse_attn_golden(
+        q_pad, k_pad, v_pad,
+        base_blockmask=base_blockmask,
+        head_mask_type=head_mask_type,
+        streaming_info=streaming_info,
+        is_causal=is_causal,
+        softmax_scale=scale,
+        upcast=True,
+    )
+
+    diff = (out_npu_pad.float() - out_golden.float()).abs()
+    max_diff = diff.max().item()
+    mean_diff = diff.mean().item()
+    cos_sim = torch.nn.functional.cosine_similarity(
+        out_npu_pad.float().flatten().unsqueeze(0),
+        out_golden.float().flatten().unsqueeze(0),
+    ).item()
+
+    print(f"\n===== NPU vs Golden 对比 =====")
+    print(f"Max diff : {max_diff:.6e}")
+    print(f"Mean diff: {mean_diff:.6e}")
+    print(f"Cosine similarity: {cos_sim:.8f}")
+    if max_diff > 1e-2:
+        print("⚠️  差异较大, 请检查！")
+    else:
+        print("✅ 结果在合理误差范围内")
+    print("="*50)
