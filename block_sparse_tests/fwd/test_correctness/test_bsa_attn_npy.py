@@ -466,13 +466,13 @@ def change_block_sparsemask_to_selectidx_selctnumidx(
     return select_idx_tensor, select_num_idx_tensor
 
 
-def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_dim, n_block_dim, batch_size, num_blocksparse_heads, sparsity_list, causal=False, device="npu:0"):
+def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_dim, n_block_dim, batch_size, num_blocksparse_heads, sparsity_list, causal=False):
     assert len(sparsity_list) == num_blocksparse_heads
     def round_to_multiple(x, base):
         return ((x + base - 1) // base) * base
     
     nrow, ncol = round_to_multiple(max_seqlen_q, round_base) // m_block_dim, round_to_multiple(max_seqlen_k, round_base) // n_block_dim
-    base_mask = torch.zeros(batch_size, num_blocksparse_heads, nrow, ncol, device=device, dtype=torch.bool)
+    base_mask = torch.zeros(batch_size, num_blocksparse_heads, nrow, ncol, dtype=torch.bool).npu()
     
     for batch in range(batch_size):
         for head_rank in range(num_blocksparse_heads):
@@ -516,8 +516,8 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     query = (q_min_range + (q_max_range - q_min_range) * torch.rand(batch_size * q_seqlen, num_heads, head_size)).to(data_type).npu()
     key = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(batch_size * kv_seqlen, kv_heads, head_size)).to(data_type).npu()
     value = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(batch_size * kv_seqlen, kv_heads, head_size)).to(data_type).npu()
-    actual_seq_len = torch.full((batch_size,), q_seqlen, dtype=torch.int64, device="npu:0")
-    actual_kv_len = torch.full((batch_size,), kv_seqlen, dtype=torch.int64, device="npu:0")
+    actual_seq_len = torch.full((batch_size,), q_seqlen, dtype=torch.int64).npu()
+    actual_kv_len = torch.full((batch_size,), kv_seqlen, dtype=torch.int64).npu()
 
     print_tensor_full("query", query)
     print_tensor_full("key", key)
@@ -533,7 +533,7 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     window_size_right = -1
     return_attn_probs = False
     block_table = None
-    head_mask_type = torch.tensor([1] * num_heads, device="npu:0", dtype=torch.int32)
+    head_mask_type = torch.tensor([1] * num_heads, dtype=torch.int32).npu()
     streaming_info = None
 
     sparsity = 1
