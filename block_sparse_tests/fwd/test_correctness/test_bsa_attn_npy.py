@@ -61,7 +61,6 @@ class TestBlockSparseAttentionTorch():
         lse = (m_i + torch.log(l_i)).to(torch.float32)
         return O_final, lse
 
-
     @classmethod
     def online_softmax_attention_torch(cls, q_block, kv_blocks, scale, torch_dtype, input_dtype, inner_precise):
         # 确保在 CPU 上运行
@@ -111,7 +110,6 @@ class TestBlockSparseAttentionTorch():
         lse = (m_i + torch.log(l_i)).to(torch.float32)
 
         return O_final, lse
-
 
     def ref_select_idx_attention_torch(self,
                                        query,
@@ -223,7 +221,6 @@ class TestBlockSparseAttentionTorch():
 
                         k_blocks.append(k_block)
                         v_blocks.append(v_block)
-
 
                     k_block_com = torch.cat(k_blocks, dim=2)
                     v_block_com = torch.cat(v_blocks, dim=1)
@@ -382,8 +379,9 @@ class TestBlockSparseAttentionTorch():
         else:
             return ref_output, ref_lse
 
+
 def change_block_sparsemask_to_selectidx_selctnumidx(
-    self, block_sparse_mask, q_seqlen_list, kv_seqlen_list, block_shape, batch
+    block_sparse_mask, q_seqlen_list, kv_seqlen_list, block_shape, batch
 ):
     """
     把blocksparseMask转为selectIdx和selectNumIdx
