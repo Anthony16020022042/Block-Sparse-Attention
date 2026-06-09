@@ -590,11 +590,12 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     testObj = TestBlockSparseAttentionTorch()
     atten_out_golden, lse_golden = testObj.calc_data(data_type, q_input_value, k_input_value, v_input_value, select_idx_input, select_num_idx_input, block_shape, q_seqlen_list, kv_seqlen_list, scale, "TND", "TND", 0)
 
-    diff = (result.float() - atten_out_golden.float()).abs()
+    atten_out_npu = result.cpu()
+    diff = (atten_out_npu.float() - atten_out_golden.float()).abs()
     max_diff = diff.max().item()
     mean_diff = diff.mean().item()
     cos_sim = torch.nn.functional.cosine_similarity(
-        result.float().flatten().unsqueeze(0),
+        atten_out_npu.float().flatten().unsqueeze(0),
         atten_out_golden.float().flatten().unsqueeze(0),
     ).item()
 
