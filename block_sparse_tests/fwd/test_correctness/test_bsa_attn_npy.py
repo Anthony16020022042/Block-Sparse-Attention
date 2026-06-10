@@ -507,6 +507,7 @@ def print_tensor_full(name, tensor):
 
 @pytest.mark.parametrize("data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, is_causal", test_cases)
 def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, is_causal):
+    torch.npu.set_device(1)
     q_min_range = -5.0
     q_max_range = 5.0
     kv_min_range = -5.0
