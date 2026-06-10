@@ -245,7 +245,7 @@ class TestBlockSparseAttentionTorch():
                             kv_blocks.append((k_last_chunk, v_last_chunk))
 
                     # 使用 Online Softmax 计算注意力（FlashAttention 风格）
-                    if query.dtype == torch.float32:
+                    if inner_precise == 0:
                         out_block, lse_block = self.online_softmax_attention_torch_high(q_block, kv_blocks, scale)  # (1, q_block_size, head_size)
                     else:
                         out_block, lse_block = self.online_softmax_attention_torch(q_block, kv_blocks, scale, torch_dtype, query.dtype, inner_precise)
@@ -586,7 +586,7 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     select_idx_input, select_num_idx_input = change_block_sparsemask_to_selectidx_selctnumidx(
         base_blockmask, q_seqlen_list, kv_seqlen_list, block_shape, batch_size
     )
-    
+
     testObj = TestBlockSparseAttentionTorch()
     atten_out_golden, lse_golden = testObj.calc_data(data_type, q_input_value, k_input_value, v_input_value, select_idx_input, select_num_idx_input, block_shape, q_seqlen_list, kv_seqlen_list, scale, "TND", "TND", 0)
 
@@ -608,3 +608,10 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     else:
         print("✅ 结果在合理误差范围内")
     print("="*50)
+
+    torch.testing.assert_close(
+        atten_out_npu.float(),
+        atten_out_golden.float(),
+        rtol=1e-2,  # 相对误差
+        atol=1e-2,  # 绝对误差
+    )
