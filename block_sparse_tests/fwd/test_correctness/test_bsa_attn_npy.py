@@ -535,7 +535,7 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     head_mask_type = torch.tensor([1] * num_heads, dtype=torch.int32).npu()
     streaming_info = None
 
-    sparsity = 1
+    sparsity = 0.5
     sparsity_list = [sparsity] * num_heads
     block_size = 128
     base_blockmask = generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, block_size, block_size, block_size, batch_size, num_heads, sparsity_list)
