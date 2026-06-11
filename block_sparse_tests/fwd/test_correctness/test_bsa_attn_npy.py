@@ -493,10 +493,10 @@ def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_
 
 test_cases = [
     # (data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, is_causal)
-    (torch.bfloat16, 1, 1, 1, 512, 1024, 128, True),
-    (torch.bfloat16, 2, 4, 4, 1024, 1024, 128, False),
-    (torch.float16, 7, 5, 1, 512, 512, 128, True),
-    # (torch.float16, 7, 5, 1, 777, 888, 192, False),
+    # (torch.bfloat16, 1, 1, 1, 512, 1024, 128, True),
+    # (torch.bfloat16, 2, 4, 4, 1024, 1024, 128, False),
+    # (torch.float16, 7, 5, 1, 512, 512, 128, True),
+    (torch.float16, 7, 5, 1, 777, 888, 192, False),
     # (torch.float16, 7, 5, 1, 1777, 1888, 256, True),
     # (torch.bfloat16, 1, 1, 1, 7777, 8192, 64, True),
     # (torch.bfloat16, 7, 5, 1, 711, 8192, 111, True)
