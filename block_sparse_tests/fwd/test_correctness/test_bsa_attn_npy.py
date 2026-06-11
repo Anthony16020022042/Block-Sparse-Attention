@@ -524,11 +524,11 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     actual_seq_len = torch.full((batch_size,), q_seqlen, dtype=torch.int64).npu()
     actual_kv_len = torch.full((batch_size,), kv_seqlen, dtype=torch.int64).npu()
 
-    print_tensor_full("query", query)
-    print_tensor_full("key", key)
-    print_tensor_full("value", value)
-    print_tensor_full("actual_seq_len", actual_seq_len)
-    print_tensor_full("actual_kv_len", actual_kv_len)
+    # print_tensor_full("query", query)
+    # print_tensor_full("key", key)
+    # print_tensor_full("value", value)
+    # print_tensor_full("actual_seq_len", actual_seq_len)
+    # print_tensor_full("actual_kv_len", actual_kv_len)
 
     max_seqlen_q = q_seqlen
     max_seqlen_k = kv_seqlen
@@ -545,7 +545,7 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     sparsity_list = [sparsity] * num_heads
     block_size = 128
     base_blockmask = generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, block_size, block_size, block_size, batch_size, num_heads, sparsity_list)
-    print("[wjc] start")
+    # print("[wjc] start")
     result = block_sparse_attn_func(
         query, 
         key, 
@@ -564,24 +564,24 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
         exact_streaming=False,
         return_attn_probs=return_attn_probs,
     )
-    print("[wjc] end")
-    # ==========================================
-    # 🔥 万能打印：自动识别类型、长度、内容、shape
-    # ==========================================
-    print("\n" + "="*50)
-    print("📌 函数返回结果类型:", type(result))
-    print("📌 长度/元素个数:", len(result) if isinstance(result, (list, tuple)) else "不是列表")
+    # print("[wjc] end")
+    # # ==========================================
+    # # 🔥 万能打印：自动识别类型、长度、内容、shape
+    # # ==========================================
+    # print("\n" + "="*50)
+    # print("📌 函数返回结果类型:", type(result))
+    # print("📌 长度/元素个数:", len(result) if isinstance(result, (list, tuple)) else "不是列表")
 
-    # 逐个打印每个返回值
-    for idx, item in enumerate(result):
-        print(f"\n返回值 [{idx}] 类型: {type(item)}")
-        if hasattr(item, 'shape'):
-            print(f"           shape: {item.shape}")
-        if hasattr(item, 'dtype'):
-            print(f"           dtype: {item.dtype}")
-        print(f"           内容: {item}")
+    # # 逐个打印每个返回值
+    # for idx, item in enumerate(result):
+    #     print(f"\n返回值 [{idx}] 类型: {type(item)}")
+    #     if hasattr(item, 'shape'):
+    #         print(f"           shape: {item.shape}")
+    #     if hasattr(item, 'dtype'):
+    #         print(f"           dtype: {item.dtype}")
+    #     print(f"           内容: {item}")
 
-    print("="*50 + "\n")
+    # print("="*50 + "\n")
 
     q_input_value = query.cpu()
     k_input_value = key.cpu()
@@ -606,15 +606,15 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
         atten_out_golden.float().flatten().unsqueeze(0),
     ).item()
 
-    print(f"\n===== NPU vs Golden 对比 =====")
-    print(f"Max diff : {max_diff:.6e}")
-    print(f"Mean diff: {mean_diff:.6e}")
-    print(f"Cosine similarity: {cos_sim:.8f}")
-    if max_diff > 1e-2:
-        print("⚠️  差异较大, 请检查！")
-    else:
-        print("✅ 结果在合理误差范围内")
-    print("="*50)
+    # print(f"\n===== NPU vs Golden 对比 =====")
+    # print(f"Max diff : {max_diff:.6e}")
+    # print(f"Mean diff: {mean_diff:.6e}")
+    # print(f"Cosine similarity: {cos_sim:.8f}")
+    # if max_diff > 1e-2:
+    #     print("⚠️  差异较大, 请检查！")
+    # else:
+    #     print("✅ 结果在合理误差范围内")
+    # print("="*50)
 
     torch.testing.assert_close(
         atten_out_npu.float(),
