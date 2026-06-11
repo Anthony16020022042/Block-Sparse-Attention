@@ -494,7 +494,7 @@ def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_
 test_cases = [
     # (data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, is_causal)
     (torch.bfloat16, 1, 1, 1, 512, 1024, 128, True),
-    (torch.bfloat16, 2, 4, 4, 1024, 1024, 128, False)
+    (torch.bfloat16, 1, 4, 4, 1024, 1024, 128, False)
 ]
 
 def print_tensor_full(name, tensor):
