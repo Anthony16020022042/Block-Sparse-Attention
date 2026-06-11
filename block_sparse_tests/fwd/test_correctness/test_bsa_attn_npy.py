@@ -337,7 +337,7 @@ class TestBlockSparseAttentionTorch():
         if isinstance(q_seqlen_list, (list, tuple)):
             num_tokens = sum(q_seqlen_list)
         else:
-            num_tokens = torch.tensor(q_seqlen_list).sum().item()
+            num_tokens = q_seqlen_list.clone().detach().sum().item()
         head_size_vo = embedding_size
 
         shape_out = (num_tokens, num_heads, head_size_vo)
