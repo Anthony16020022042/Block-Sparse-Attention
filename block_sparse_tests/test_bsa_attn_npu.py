@@ -468,10 +468,10 @@ def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_
     assert len(sparsity_list) == num_blocksparse_heads
     def round_to_multiple(x, base):
         return ((x + base - 1) // base) * base
-    
+
     nrow, ncol = round_to_multiple(max_seqlen_q, round_base) // m_block_dim, round_to_multiple(max_seqlen_k, round_base) // n_block_dim
     base_mask = torch.zeros(batch_size, num_blocksparse_heads, nrow, ncol, dtype=torch.bool).npu()
-    
+
     for batch in range(batch_size):
         for head_rank in range(num_blocksparse_heads):
             sparsity = sparsity_list[head_rank]
@@ -488,18 +488,18 @@ def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_
                         base_mask[batch][head_rank][idx, torch.randperm(available_col_num)[:num_one]] = True
             elif sparsity == 1.0:
                 base_mask[batch][head_rank] = torch.ones_like(base_mask[batch][head_rank])
-                
+
     return base_mask.to(torch.int8)
 
 test_cases = [
-    # (data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, is_causal)
-    (torch.bfloat16, 1, 1, 1, 512, 1024, 128, True),
-    (torch.bfloat16, 2, 4, 4, 1024, 1024, 128, False),
-    (torch.float16, 7, 5, 1, 512, 512, 128, True),
-    (torch.float16, 7, 5, 1, 777, 888, 128, False),
-    (torch.float16, 7, 5, 1, 1777, 1888, 128, True),
-    (torch.bfloat16, 1, 1, 1, 7777, 8192, 64, True),
-    (torch.bfloat16, 7, 5, 1, 711, 8192, 64, True)
+    # (data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, sparsity, is_causal)
+    (torch.bfloat16, 1, 1, 1, 512, 1024, 128, 0.1, True),
+    (torch.bfloat16, 2, 4, 4, 1024, 1024, 128, 0.5, False),
+    (torch.float16, 7, 5, 1, 512, 512, 128, 0.9, True),
+    (torch.float16, 7, 5, 1, 777, 888, 128, 0.2, False),
+    (torch.float16, 7, 5, 1, 1777, 1888, 128, 0.4, True),
+    (torch.bfloat16, 1, 1, 1, 7777, 8192, 64, 0.6, True),
+    (torch.bfloat16, 7, 5, 1, 711, 8192, 64, 0.8, True),
 ]
 
 def print_tensor_full(name, tensor):
@@ -511,8 +511,8 @@ def print_tensor_full(name, tensor):
     print("数值内容：")
     print(tensor.detach().cpu())
 
-@pytest.mark.parametrize("data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, is_causal", test_cases)
-def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, is_causal):
+@pytest.mark.parametrize("data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, sparsity, is_causal", test_cases)
+def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, sparsity, is_causal):
     torch.npu.set_device(1)
     q_min_range = -5.0
     q_max_range = 5.0
@@ -524,33 +524,18 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     actual_seq_len = torch.full((batch_size,), q_seqlen, dtype=torch.int64).npu()
     actual_kv_len = torch.full((batch_size,), kv_seqlen, dtype=torch.int64).npu()
 
-    # print_tensor_full("query", query)
-    # print_tensor_full("key", key)
-    # print_tensor_full("value", value)
-    # print_tensor_full("actual_seq_len", actual_seq_len)
-    # print_tensor_full("actual_kv_len", actual_kv_len)
-
     max_seqlen_q = q_seqlen
     max_seqlen_k = kv_seqlen
     dropout_p = 0.0
     scale = 1.0 / (head_size ** 0.5)
-    window_size_left = -1
-    window_size_right = -1
     return_attn_probs = False
     block_table = None
     head_mask_type = torch.tensor([1] * num_heads, dtype=torch.int32).npu()
     streaming_info = None
 
-    sparsity = 0.5
     sparsity_list = [sparsity] * num_heads
     block_size = 128
     base_blockmask = generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, block_size, block_size, block_size, batch_size, num_heads, sparsity_list)
-    print("mask shape:", base_blockmask.shape)
-    print("mask dtype:", base_blockmask.dtype)
-    print("device:", base_blockmask.device)
-    # 打印全部数值（小块掩码可用，大尺寸会刷屏）
-    print(base_blockmask)
-    # print("[wjc] start")
     result = block_sparse_attn_func(
         query, 
         key, 
@@ -569,24 +554,6 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
         exact_streaming=False,
         return_attn_probs=return_attn_probs,
     )
-    # print("[wjc] end")
-    # # ==========================================
-    # # 🔥 万能打印：自动识别类型、长度、内容、shape
-    # # ==========================================
-    # print("\n" + "="*50)
-    # print("📌 函数返回结果类型:", type(result))
-    # print("📌 长度/元素个数:", len(result) if isinstance(result, (list, tuple)) else "不是列表")
-
-    # # 逐个打印每个返回值
-    # for idx, item in enumerate(result):
-    #     print(f"\n返回值 [{idx}] 类型: {type(item)}")
-    #     if hasattr(item, 'shape'):
-    #         print(f"           shape: {item.shape}")
-    #     if hasattr(item, 'dtype'):
-    #         print(f"           dtype: {item.dtype}")
-    #     print(f"           内容: {item}")
-
-    # print("="*50 + "\n")
 
     q_input_value = query.cpu()
     k_input_value = key.cpu()
@@ -603,14 +570,13 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     atten_out_golden, lse_golden = testObj.calc_data(data_type, q_input_value, k_input_value, v_input_value, select_idx_input, select_num_idx_input, block_shape, q_seqlen_list, kv_seqlen_list, scale, "TND", "TND", 0)
 
     atten_out_npu = result.cpu()
-    diff = (atten_out_npu.float() - atten_out_golden.float()).abs()
-    max_diff = diff.max().item()
-    mean_diff = diff.mean().item()
-    cos_sim = torch.nn.functional.cosine_similarity(
-        atten_out_npu.float().flatten().unsqueeze(0),
-        atten_out_golden.float().flatten().unsqueeze(0),
-    ).item()
-
+    # diff = (atten_out_npu.float() - atten_out_golden.float()).abs()
+    # max_diff = diff.max().item()
+    # mean_diff = diff.mean().item()
+    # cos_sim = torch.nn.functional.cosine_similarity(
+    #     atten_out_npu.float().flatten().unsqueeze(0),
+    #     atten_out_golden.float().flatten().unsqueeze(0),
+    # ).item()
     # print(f"\n===== NPU vs Golden 对比 =====")
     # print(f"Max diff : {max_diff:.6e}")
     # print(f"Mean diff: {mean_diff:.6e}")
