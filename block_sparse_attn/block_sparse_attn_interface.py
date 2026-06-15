@@ -1,6 +1,6 @@
 # Adapted from https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/flash_blocksparse_attn_interface.py
 
-import block_sparse_attn_cuda
+import block_sparse_attn_C
 import torch
 import torch.nn as nn
 from typing import Optional, Tuple
@@ -143,7 +143,7 @@ else:
     _torch_register_fake_wrapper = noop_register_fake_wrapper
 
 
-@_torch_custom_op_wrapper("flash_attn::_block_sparse_attn_forward", mutates_args=(), device_types="cuda")
+@_torch_custom_op_wrapper("flash_attn::_block_sparse_attn_forward", mutates_args=(), device_types="npu")
 def _block_sparse_attn_forward(
     q: torch.Tensor,
     k: torch.Tensor,
@@ -166,7 +166,7 @@ def _block_sparse_attn_forward(
     window_size_right: int
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     q, k, v = [maybe_contiguous(x) for x in (q, k, v)]
-    out, softmax_lse, S_dmask, rng_state = block_sparse_attn_cuda.fwd_block(
+    out, softmax_lse, S_dmask, rng_state = block_sparse_attn_C.fwd_block(
         q, k, v,
         cu_seqlens_q, cu_seqlens_k,
         head_mask_type,
@@ -229,7 +229,7 @@ else:
     _wrapped_block_sparse_attn_forward = _block_sparse_attn_forward
 
 
-@_torch_custom_op_wrapper("flash_attn::_block_sparse_attn_backward", mutates_args=("dq", "dk", "dv"), device_types="cuda")
+@_torch_custom_op_wrapper("flash_attn::_block_sparse_attn_backward", mutates_args=("dq", "dk", "dv"), device_types="npu")
 def _block_sparse_attn_backward(
     dout: torch.Tensor,
     q: torch.Tensor,
@@ -259,7 +259,7 @@ def _block_sparse_attn_backward(
     rng_state: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     dout, q, k, v, out = [maybe_contiguous(x) for x in (dout, q, k, v, out)]
-    dq, dk, dv, softmax_d = block_sparse_attn_cuda.bwd_block(
+    dq, dk, dv, softmax_d = block_sparse_attn_C.bwd_block(
         dout,
         q, k, v,
         out,
@@ -357,7 +357,7 @@ class BlockSparseAttnFunc(torch.autograd.Function):
             k = torch.nn.functional.pad(k, [0, 8 - head_size_og % 8])
             v = torch.nn.functional.pad(v, [0, 8 - head_size_og % 8])
         if base_blockmask is not None:
-            row_blockmask = convert_blockmask_row_reverse(base_blockmask, is_causal)
+            row_blockmask = base_blockmask.to(dtype=torch.uint8).contiguous()
         else:
             row_blockmask = None
         
@@ -413,7 +413,7 @@ class BlockSparseAttnFunc(torch.autograd.Function):
         if head_size_og % 8 != 0:
             dout_padded = torch.nn.functional.pad(dout, [0, 8 - head_size_og % 8])
         if base_blockmask is not None:
-            col_blockmask = convert_blockmask_col_reverse(base_blockmask, ctx.is_causal)
+            col_blockmas = base_blockmask.to(dtype=torch.uint8).contiguous()
         else:
             col_blockmask = None
             
@@ -462,9 +462,9 @@ def block_sparse_attn_func(
     exact_streaming=False,
     return_attn_probs=False,
 ):
-    head_mask_type, blocksparse_head_num = replace_ones_with_count(head_mask_type)
-    if base_blockmask is not None:
-        assert base_blockmask.shape[1] == blocksparse_head_num
+    # head_mask_type, blocksparse_head_num = replace_ones_with_count(head_mask_type)
+    # if base_blockmask is not None:
+    #     assert base_blockmask.shape[1] == blocksparse_head_num
     
     """dropout_p should be set to 0.0 during evaluation"""
     
