@@ -5,7 +5,7 @@ import torch_npu
 import numpy as np
 import ctypes
 import random
-from ml_dtypes import bfloat16
+# from ml_dtypes import bfloat16
 from einops import rearrange, repeat
 from typing import Optional, Tuple
 from block_sparse_attn import block_sparse_attn_func
