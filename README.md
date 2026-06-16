@@ -96,66 +96,49 @@ Block sparse attention forward pass for Ascend NPU。
 
 ## 1 Tiling 切分
 
-### 1.1 任务分解
+计算分解为 **Task × KV-Chunk × Pipeline-Stage** 三维迭代。
 
-计算被分解为 **Task × KV-Chunk × Pipeline-Stage** 三个维度的迭代。
-
-**Task 定义：** 每个 Task 对应一个 `(qSBlockIdx, qNBlockIdx)` 对，即一个 Q 空间块 × 一个 N-Group（head 组）。Task 总数由所有 batch 的 `curQNBlockNum * curQSBlockNum` 累加得到。
-
+每个 Task 对应一个 Q 空间块 × 一个 N-Group（head 组）。所有 Task 按 `coreIdx` 均匀分布到 AI Core：
 ```
 Task 总数 = Σ_batch ( qNBlockNumPerGroup × kvHeads × GetQBlocks(qSeqlen, qBlockX) )
+for (taskIdx = coreIdx; taskIdx < totalTaskNum; taskIdx += coreNum)
 ```
 
-所有 Task 在硬件 AI Core 上通过 `coreIdx` 均匀分配：
-```cpp
-for (uint32_t taskIdx = coreIdx; taskIdx < totalTaskNum; taskIdx += coreNum)
+Task 拆解：
+```
+qSBlockIdx = taskIdxCurBatch / curQNBlockNum       → 空间块索引
+qNBlockIdx = taskIdxCurBatch % curQNBlockNum       → N-Group 索引
+kvHeadIdx  = qNBlockIdx / qNBlockNumPerGroup       → KV head
+qHeadIdx   = kvHeadIdx × groupSize + NGroup × tile → Q head（GQA 展开）
 ```
 
-### 1.2 四层 Tiling 层次
+分块层次：
 
-| 层次 | 维度 | 分块大小 | 说明 |
-|------|------|---------|------|
-| Batch | B | 动态 | 每个 batch 独立计算 seqlen，Task 按 batch 累积，通过 `curTotalTaskNum` 边界切换 |
-| Q 空间块 (X) | Q seq | `qBlockX = 128` → `BASIC_BLOCK_SIZE = 128` | X 块内再切 `qBlockInX` 个 S 块 |
-| Head 组 (N) | heads | `curQNBlockTile × group` | `groupSize = qHeads / kvHeads`，支持 GQA/MQA |
-| KV 空间块 (Y) | KV seq | `pagedBlockSize = 128` | 通过 `selectIdx` 跳过掩码为零的块，不连续遍历 |
+| 层次 | 分块大小 | 说明 |
+|------|---------|------|
+| Batch | 动态 | 每个 batch 独立 seqlen，Task 按 `curTotalTaskNum` 边界切换 |
+| Q 空间 (X) | 128 → 128 | X 块内再切 `qBlockInX` 个 S 子块 |
+| Head (N) | `curQNBlockTile × group` | `groupSize = qHeads / kvHeads`，支持 GQA |
+| KV 空间 (Y) | 128 | 通过 `selectIdx` 跳过掩码为零的块，不连续遍历 |
 
-**Task 内部拆解（`mha_varlen_fwd_block.cpp` 514-526）：**
-```cpp
-uint32_t qSBlockIdx   = taskIdxCurBatch / curQNBlockNum;      // 空间块索引
-uint32_t qNBlockIdx   = taskIdxCurBatch % curQNBlockNum;      // N-Group 索引
-uint32_t kvHeadIdx    = qNBlockIdx / qNBlockNumPerGroup;      // KV head
-uint32_t qHeadIdx     = kvHeadIdx × groupSize + qNBlockIdxCurGroup × curQNBlockTile;
-```
+稀疏块选取与掩码预处理：
+- **掩码预处理**：Vector 核心执行 `Mask2IdxAndCount`，将稠密 blockmask `(B, N, maxQBlock, maxKvBlock)` 转换为稀疏 `selectIdx` 和 `selectNumIdx`，主循环只遍历有效块。
+- **稀疏选取**：从 `gSelectIdx` 读取当前 Task 选中的 KV Y 块索引，仅在这些块上做 QK/PV 计算。
+- **Stack 合并**：多个连续 Y 块合并为 `blockStackNum = MAX_KV_STACK_LEN / pagedBlockSize` 一个 stack，减少循环开销。
 
-### 1.3 稀疏块选取
-
-不使用连续 KV 循环，而是从 `gSelectIdx` 中读出当前 Task 选中的 KV Y 块索引，仅在这些块上执行 QK 和 PV 计算：
+Workspace 布局：
 
 ```
-selected_kv_y_blocks = gSelectIdx[curSelectIdx × maxKvBlockNum : curSelectIdx × maxKvBlockNum + curSelectNum]
+偏移                             内容
+0                                 S 矩阵 (QK^T 结果)
++ mm1OutSize                      P 矩阵 (Softmax 输出)
++ smOnlineOutSize                 O_tmp (PV 中间结果)
++ mm2OutSize                      O_update (重缩放)
++ updateSize                      selectNumIdx
++ selectNumIdxSize                selectIdx
 ```
 
-每个选中的 Y 块内再按 `pagedBlockSize` 分为若干 `kvSLoop` 迭代，并通过 `blockStackNum = MAX_KV_STACK_LEN / pagedBlockSize` 将多个连续迭代合并为一个 `stack` 以减少循环开销。
-
-### 1.4 掩码预处理（Mask → SelectIdx）
-
-在 Vector 核心执行 `Mask2IdxAndCount`：将稠密 blockmask `(B, N, maxQBlock, maxKvBlock)` 转换为稀疏索引格式 `selectIdx [QBlockNum, N, maxKvBlockNum]` 和 `selectNumIdx [QBlockNum, N]`，消除值为 0 的掩码块，使主循环只需遍历有效块。
-
-### 1.5 Workspace 布局
-
-Global memory workspace 按以下偏移划分：
-
-```
-[0                  )  S 矩阵 (QK^T 结果)   → mm1OutSize
-[mm1OutSize         )  P 矩阵 (Softmax 输出) → smOnlineOutSize
-[+ smOnlineOutSize  )  O_tmp (PV 中间结果)  → mm2OutSize
-[+ mm2OutSize       )  O_update (重缩放)    → updateSize
-[+ updateSize        )  selectNumIdx         → selectNumIdxSize
-[+ selectNumIdxSize  )  selectIdx
-```
-
-每个 core 在 S/P/O_tmp 区域有 `(PRE_LAUNCH + 1) × WORKSPACE_BLOCK_SIZE_DB` 的 ping-pong 槽位，用于流水线重叠。
+每个 core 在 S/P/O_tmp 区域有 `(PRE_LAUNCH + 1) × WORKSPACE_BLOCK_SIZE_DB` 的 ping-pong 槽位用于流水线重叠。
 
 ---
 
