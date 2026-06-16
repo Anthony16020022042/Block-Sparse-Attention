@@ -514,15 +514,29 @@ def print_tensor_full(name, tensor):
 @pytest.mark.parametrize("data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, sparsity, is_causal", test_cases)
 def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, sparsity, is_causal):
     torch.npu.set_device(1)
+    torch.manual_seed(42)
     q_min_range = -5.0
     q_max_range = 5.0
     kv_min_range = -5.0
     kv_max_range = 5.0
-    query = (q_min_range + (q_max_range - q_min_range) * torch.rand(batch_size * q_seqlen, num_heads, head_size)).to(data_type).npu()
-    key = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(batch_size * kv_seqlen, kv_heads, head_size)).to(data_type).npu()
-    value = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(batch_size * kv_seqlen, kv_heads, head_size)).to(data_type).npu()
-    actual_seq_len = (torch.arange(batch_size + 1, dtype=torch.int64) * q_seqlen).npu()
-    actual_kv_len = (torch.arange(batch_size + 1, dtype=torch.int64) * kv_seqlen).npu()
+
+    q_lens = torch.randint(1, q_seqlen + 1, (batch_size,)).tolist()
+    kv_lens = torch.randint(1, kv_seqlen + 1, (batch_size,)).tolist()
+    total_q = sum(q_lens)
+    total_kv = sum(kv_lens)
+
+    query = (q_min_range + (q_max_range - q_min_range) * torch.rand(total_q, num_heads, head_size)).to(data_type).npu()
+    key = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(total_kv, kv_heads, head_size)).to(data_type).npu()
+    value = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(total_kv, kv_heads, head_size)).to(data_type).npu()
+
+    q_cum = [0]
+    for l in q_lens:
+        q_cum.append(q_cum[-1] + l)
+    kv_cum = [0]
+    for l in kv_lens:
+        kv_cum.append(kv_cum[-1] + l)
+    actual_seq_len = torch.tensor(q_cum, dtype=torch.int64).npu()
+    actual_kv_len = torch.tensor(kv_cum, dtype=torch.int64).npu()
 
     max_seqlen_q = q_seqlen
     max_seqlen_k = kv_seqlen
