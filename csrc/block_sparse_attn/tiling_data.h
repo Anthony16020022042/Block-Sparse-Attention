@@ -2,37 +2,37 @@
 #define TILING_DATA_H
 
 struct BlockSparseAttentionTilingData {
-    uint32_t batch;
-    uint32_t numHeads;
-    uint32_t kvHeads;
-    uint32_t embeddingSize;
-    uint32_t blockSize;
-    uint32_t maxNumBlocksPerBatch;
-    uint32_t firstBatchTaskNum;
-    uint32_t totalTaskNum;
-    uint32_t maskType;
-    float scaleValue;
-    uint32_t totalQBlocks;
-    uint32_t firstQBlockNum;
-    uint64_t blockShapeX;
-    uint64_t blockShapeY;
-    uint32_t maxKvBlockNum;
-    uint32_t maxQBlockNum;
-    uint32_t avgRowNumPerSubCore;
-    uint32_t preActivateSubCoreNum;
-    uint32_t queryLayout;
-    uint32_t kvCacheLayout;
-    uint32_t maxQSeqlen;
-    uint32_t maxKvSeqlen;
-    uint32_t useUniformQSeqlen;
-    uint32_t useUniformKvSeqlen;
-    uint64_t selectNumIdxSize;
-    uint64_t selectIdxSize;
-    uint64_t mm1OutSize;
-    uint64_t smOnlineOutSize;
-    uint64_t mm2OutSize;
-    uint64_t updateSize;
-    uint64_t workSpaceSize;
+    uint32_t batch;                 // batch 数
+    uint32_t numHeads;              // Q head 数
+    uint32_t kvHeads;               // KV head 数
+    uint32_t embeddingSize;         // head dim
+    uint32_t blockSize;             // 分页 KV 缓存的块大小
+    uint32_t maxNumBlocksPerBatch;  // 每个 batch 最大块数（分页 KV 用）
+    uint32_t firstBatchTaskNum;     // 首个 batch 的 task 数，用于 task 索引边界计算
+    uint32_t totalTaskNum;          // 所有 batch 的 task 总数
+    uint32_t maskType;              // 掩码类型（NO_MASK/CAUSAL/SPARSE 等），当前固定为 0
+    float    scaleValue;            // QK^T softmax 缩放因子
+    uint32_t totalQBlocks;          // 所有 batch 的 Q 块总数
+    uint32_t firstQBlockNum;        // 首个 batch 的 Q 块数
+    uint64_t blockShapeX;           // Q 块大小（空间维度，如 128）
+    uint64_t blockShapeY;           // KV 块大小（空间维度，如 128）
+    uint32_t maxKvBlockNum;         // KV 方向最大块数（所有 batch 取 max）
+    uint32_t maxQBlockNum;          // Q 方向最大块数（所有 batch 取 max）
+    uint32_t avgRowNumPerSubCore;   // 每个 sub core 平均处理的行数（掩码转换用）
+    uint32_t preActivateSubCoreNum; // 需要激活的 sub core 数（掩码转换用）
+    uint32_t queryLayout;           // Q 布局：0=TND, 1=BNSD
+    uint32_t kvCacheLayout;         // KV 布局：0=TND, 1=BNSD
+    uint32_t maxQSeqlen;            // Q 最大序列长度
+    uint32_t maxKvSeqlen;           // KV 最大序列长度
+    uint32_t useUniformQSeqlen;     // 是否所有 batch 的 Q seqlen 相同
+    uint32_t useUniformKvSeqlen;    // 是否所有 batch 的 KV seqlen 相同
+    uint64_t selectNumIdxSize;      // selectNumIdx 缓冲区大小（bytes）
+    uint64_t selectIdxSize;         // selectIdx 缓冲区大小（bytes）
+    uint64_t mm1OutSize;            // S = QK^T 输出缓冲区大小
+    uint64_t smOnlineOutSize;       // P = softmax(S) 输出缓冲区大小
+    uint64_t mm2OutSize;            // O_tmp = PV 输出缓冲区大小
+    uint64_t updateSize;            // O_update 重缩放缓冲区大小
+    uint64_t workSpaceSize;         // workspace 总大小
 
     uint32_t get_batch() const { return batch; }
     uint32_t get_numHeads() const { return numHeads; }
