@@ -521,8 +521,8 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     query = (q_min_range + (q_max_range - q_min_range) * torch.rand(batch_size * q_seqlen, num_heads, head_size)).to(data_type).npu()
     key = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(batch_size * kv_seqlen, kv_heads, head_size)).to(data_type).npu()
     value = (kv_min_range + (kv_max_range - kv_min_range) * torch.rand(batch_size * kv_seqlen, kv_heads, head_size)).to(data_type).npu()
-    actual_seq_len = torch.full((batch_size,), q_seqlen, dtype=torch.int64).npu()
-    actual_kv_len = torch.full((batch_size,), kv_seqlen, dtype=torch.int64).npu()
+    actual_seq_len = (torch.arange(batch_size + 1, dtype=torch.int64) * q_seqlen).npu()
+    actual_kv_len = (torch.arange(batch_size + 1, dtype=torch.int64) * kv_seqlen).npu()
 
     max_seqlen_q = q_seqlen
     max_seqlen_k = kv_seqlen
@@ -558,8 +558,8 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     q_input_value = query.cpu()
     k_input_value = key.cpu()
     v_input_value = value.cpu()
-    q_seqlen_list = actual_seq_len.cpu()
-    kv_seqlen_list = actual_kv_len.cpu()
+    q_seqlen_list = (actual_seq_len[1:] - actual_seq_len[:-1]).cpu()
+    kv_seqlen_list = (actual_kv_len[1:] - actual_kv_len[:-1]).cpu()
     block_shape = [128, 128]
     # 从blockSparseMask转换为selectIdx和selectNumIdx
     select_idx_input, select_num_idx_input = change_block_sparsemask_to_selectidx_selctnumidx(

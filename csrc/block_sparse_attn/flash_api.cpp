@@ -91,7 +91,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     int T = sizes[0];
     int num_heads = sizes[1];
     const int head_size_og = sizes[2];
-    const int batch_size = cu_seqlens_q.numel();
+    const int batch_size = cu_seqlens_q.numel() - 1;
     auto blockMaskSizes = row_blockmask_.value().sizes();
     int64_t maxQBlockNum = blockMaskSizes[2];
     int64_t maxKvBlockNum = blockMaskSizes[3];
@@ -110,7 +110,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
         // 根据useUniformQSeqlen_标志位决定使用actualSeqLengths数组还是maxQSeqlen_
         int64_t qSeqlen;
         // 使用actualSeqLengths数组（TND格式或BNSD格式但提供了actualSeqLengths）
-        qSeqlen = qSeqLenList[i];
+        qSeqlen = qSeqLenList[i+1] - qSeqLenList[i];
 
         uint32_t curTaskNum = 0;
         uint32_t curQBlockNum = 0;
