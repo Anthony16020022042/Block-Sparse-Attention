@@ -538,12 +538,11 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
     actual_seq_len = torch.tensor(q_cum, dtype=torch.int64).npu()
     actual_kv_len = torch.tensor(kv_cum, dtype=torch.int64).npu()
 
-    max_seqlen_q = q_seqlen
-    max_seqlen_k = kv_seqlen
+    max_seqlen_q = max(q_lens)
+    max_seqlen_k = max(kv_lens)
     dropout_p = 0.0
     scale = 1.0 / (head_size ** 0.5)
     return_attn_probs = False
-    block_table = None
     head_mask_type = torch.tensor([1] * num_heads, dtype=torch.int32).npu()
     streaming_info = None
 
