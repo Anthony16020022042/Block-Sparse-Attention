@@ -464,7 +464,7 @@ def change_block_sparsemask_to_selectidx_selctnumidx(
     return select_idx_tensor, select_num_idx_tensor
 
 
-def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_dim, n_block_dim, batch_size, num_blocksparse_heads, sparsity_list, causal=False):
+def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_dim, n_block_dim, batch_size, num_blocksparse_heads, sparsity_list, causal=False, q_seqlen_list=None, kv_seqlen_list=None):
     assert len(sparsity_list) == num_blocksparse_heads
     def round_to_multiple(x, base):
         return ((x + base - 1) // base) * base
@@ -489,7 +489,19 @@ def generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, round_base, m_block_
             elif sparsity == 1.0:
                 base_mask[batch][head_rank] = torch.ones_like(base_mask[batch][head_rank])
 
+    if q_seqlen_list is not None:
+        for b in range(batch_size):
+            q_valid_blocks = (q_seqlen_list[b] + m_block_dim - 1) // m_block_dim
+            if q_valid_blocks < nrow:
+                base_mask[b, :, q_valid_blocks:, :] = 0
+    if kv_seqlen_list is not None:
+        for b in range(batch_size):
+            kv_valid_blocks = (kv_seqlen_list[b] + n_block_dim - 1) // n_block_dim
+            if kv_valid_blocks < ncol:
+                base_mask[b, :, :, kv_valid_blocks:] = 0
+
     return base_mask.to(torch.int8)
+
 
 test_cases = [
     # (data_type, batch_size, num_heads, kv_heads, q_seqlen, kv_seqlen, head_size, sparsity, is_causal)
@@ -548,7 +560,7 @@ def test_bsa_varlen_ops(data_type, batch_size, num_heads, kv_heads, q_seqlen, kv
 
     sparsity_list = [sparsity] * num_heads
     block_size = 128
-    base_blockmask = generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, block_size, block_size, block_size, batch_size, num_heads, sparsity_list)
+    base_blockmask = generate_base_sparsity_mask(max_seqlen_q, max_seqlen_k, block_size, block_size, block_size, batch_size, num_heads, sparsity_list, q_seqlen_list=q_lens, kv_seqlen_list=kv_lens)
     result = block_sparse_attn_func(
         query, 
         key, 

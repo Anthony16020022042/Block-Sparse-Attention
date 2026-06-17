@@ -183,7 +183,7 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     softmaxlse.fill_(std::numeric_limits<float>::infinity());
 
     at::Tensor out;
-    out = torch::empty_like(q);
+    out = torch::zeros_like(q);
 
     at::Tensor tiling_gpu_tensor = tiling_cpu_tensor.to(at::Device(at::kPrivateUse1)); // Tiling to Device
 
