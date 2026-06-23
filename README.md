@@ -60,11 +60,25 @@ Block sparse attention forward pass for Ascend NPU。
 对 Q/K/V 进行分块稀疏注意力计算，支持 TND（Total-NumHeads-Dim）格式输入，
 结合 `base_blockmask` 指定每个 head 在 Q/KV 块网格上的稀疏模式，跳过掩码为零的块。
 
-**注意：**
-- 不支持反向传播的 NPU kernel（C++ 侧 backward 为桩代码）。
-- 不支持 dropout，`p_dropout` 必须为 `0.0`。
-- 不支持滑动窗口，`window_size` 固定为 `(-1, -1)`。
-- 不支持流式注意力（streaming attention）和精确流式模式（exact_streaming）。`streaming_info` 和 `exact_streaming` 参数虽在 Python 接口中预留，但 NPU kernel 中未实现对应逻辑，`maskType` 固定为 `NO_MASK`。
+## 支持特性
+
+| 特性 | 支持状态 |
+|------|---------|
+| FP16 (float16) | ✅ |
+| BF16 (bfloat16) | ✅ |
+| 分块稀疏掩码 (Block Sparse Mask) | ✅ |
+| 变长序列 (TND) | ✅ |
+| MQA/GQA | ✅ |
+| 因果注意力 (Causal) | ❌ |
+| 滑动窗口注意力 (Sliding Window) | ❌ |
+| Dropout | ❌ |
+| 流式注意力 (Streaming Attention) | ❌ |
+| 精确流式 (Exact Streaming) | ❌ |
+| 返回注意力概率 (Return Attn Probs) | ❌ |
+| 反向传播 (Backward) | ❌ |
+| 分页 KV 缓存 (Paged KV Cache) | ❌ |
+| 旋转位置编码 (RoPE) | ❌ |
+| FP8 量化 | ❌ |
 
 ### 参数
 
