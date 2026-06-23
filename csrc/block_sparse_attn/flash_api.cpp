@@ -80,12 +80,31 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
     TORCH_CHECK(p_dropout == 0.0, "NPU BlockSparseAttention does not support dropout.");
     TORCH_CHECK(window_size_left == -1, "NPU BlockSparseAttention does not support window_size_left.");
     TORCH_CHECK(window_size_right == -1, "NPU BlockSparseAttention does not support window_size_right.");
-    TORCH_CHECK(k.dtype() == q.dtype(), "query and key must have the same dtype");
-    TORCH_CHECK(v.dtype() == q.dtype(), "query and value must have the same dtype");
-    TORCH_CHECK(q.stride(-1) == 1, "Input tensor must have contiguous last dimension");
-    TORCH_CHECK(k.stride(-1) == 1, "Input tensor must have contiguous last dimension");
-    TORCH_CHECK(v.stride(-1) == 1, "Input tensor must have contiguous last dimension");
-    TORCH_CHECK(row_blockmask_.has_value(), "Row block mask is not initialized");
+    TORCH_CHECK(k.dtype() == q.dtype(), "NPU BlockSparseAttention: query and key must have the same dtype");
+    TORCH_CHECK(v.dtype() == q.dtype(), "NPU BlockSparseAttention: query and value must have the same dtype");
+    TORCH_CHECK(q.stride(-1) == 1, "NPU BlockSparseAttention: input tensor must have contiguous last dimension");
+    TORCH_CHECK(k.stride(-1) == 1, "NPU BlockSparseAttention: input tensor must have contiguous last dimension");
+    TORCH_CHECK(v.stride(-1) == 1, "NPU BlockSparseAttention: input tensor must have contiguous last dimension");
+    TORCH_CHECK(!exact_streaming, "NPU BlockSparseAttention does not support exact_streaming.");
+    TORCH_CHECK(!return_softmax, "NPU BlockSparseAttention does not support returning softmax.");
+    TORCH_CHECK(!streaming_info_.has_value(), "NPU BlockSparseAttention does not support streaming_info.");
+
+    TORCH_CHECK(q.dim() == 3, "NPU BlockSparseAttention: q must be a 3D tensor, but got ", q.dim(), "D");
+    TORCH_CHECK(k.dim() == 3, "NPU BlockSparseAttention: k must be a 3D tensor, but got ", k.dim(), "D");
+    TORCH_CHECK(v.dim() == 3, "NPU BlockSparseAttention: v must be a 3D tensor, but got ", v.dim(), "D");
+    TORCH_CHECK(k.size(-1) == q.size(-1), "NPU BlockSparseAttention: query and key must have the same head dimension");
+    TORCH_CHECK(v.size(-1) == q.size(-1), "NPU BlockSparseAttention: query and value must have the same head dimension");
+
+    TORCH_CHECK(cu_seqlens_q.dim() == 1, "NPU BlockSparseAttention: cu_seqlens_q must be a 1D tensor, but got ", cu_seqlens_q.dim(), "D");
+    TORCH_CHECK(cu_seqlens_k.dim() == 1, "NPU BlockSparseAttention: cu_seqlens_k must be a 1D tensor, but got ", cu_seqlens_k.dim(), "D");
+    TORCH_CHECK(cu_seqlens_q.numel() >= 2, "NPU BlockSparseAttention: cu_seqlens_q must have at least 2 elements, but got ", cu_seqlens_q.numel());
+    TORCH_CHECK(cu_seqlens_k.numel() >= 2, "NPU BlockSparseAttention: cu_seqlens_k must have at least 2 elements, but got ", cu_seqlens_k.numel());
+
+    TORCH_CHECK(max_seqlen_q > 0, "NPU BlockSparseAttention: max_seqlen_q must be positive, but got ", max_seqlen_q);
+    TORCH_CHECK(max_seqlen_k > 0, "NPU BlockSparseAttention: max_seqlen_k must be positive, but got ", max_seqlen_k);
+
+    TORCH_CHECK(m_block_dim > 0, "NPU BlockSparseAttention: m_block_dim must be positive, but got ", m_block_dim);
+    TORCH_CHECK(n_block_dim > 0, "NPU BlockSparseAttention: n_block_dim must be positive, but got ", n_block_dim);
 
     const auto sizes = q.sizes();
     int T = sizes[0];
@@ -98,12 +117,30 @@ mha_varlen_fwd_block(at::Tensor &q,                              // total_q x nu
 
     const int num_heads_k = k.size(1);
 
+    TORCH_CHECK(num_heads % num_heads_k == 0,
+        "NPU BlockSparseAttention: number of query heads (", num_heads, ") must be divisible by number of key/value heads (", num_heads_k, ")");
+
+    TORCH_CHECK(head_mask_type.dim() == 1, "NPU BlockSparseAttention: head_mask_type must be a 1D tensor, but got ", head_mask_type.dim(), "D");
+    TORCH_CHECK(head_mask_type.size(0) == num_heads,
+        "NPU BlockSparseAttention: head_mask_type must have ", num_heads, " elements, but got ", head_mask_type.size(0));
+    TORCH_CHECK(head_mask_type.dtype() == torch::kInt32,
+        "NPU BlockSparseAttention: head_mask_type must be int32, but got ", head_mask_type.dtype());
+
     uint32_t totalTaskNum = 0;
     uint32_t totalQBlocks = 0;
     uint32_t firstBatchTaskNum = 0;
     uint32_t firstQBlockNum = 0;
     auto cu_seqlens_q_cpu = cu_seqlens_q.to(at::kCPU); // kernel->host
     const int64_t *qSeqLenList = static_cast<const int64_t *>(cu_seqlens_q_cpu.data_ptr());
+
+    auto cu_seqlens_k_cpu = cu_seqlens_k.to(at::kCPU);
+    const int64_t *kvSeqLenList = static_cast<const int64_t *>(cu_seqlens_k_cpu.data_ptr());
+    TORCH_CHECK(q.size(0) == qSeqLenList[batch_size],
+        "NPU BlockSparseAttention: q total seqlen (", q.size(0), ") does not match cu_seqlens_q (", qSeqLenList[batch_size], ")");
+    TORCH_CHECK(k.size(0) == kvSeqLenList[batch_size],
+        "NPU BlockSparseAttention: k total seqlen (", k.size(0), ") does not match cu_seqlens_k (", kvSeqLenList[batch_size], ")");
+    TORCH_CHECK(v.size(0) == kvSeqLenList[batch_size],
+        "NPU BlockSparseAttention: v total seqlen (", v.size(0), ") does not match cu_seqlens_k (", kvSeqLenList[batch_size], ")");
 
     // 遍历每个batch进行分核计算
     for (auto i = 0; i < batch_size; i++) {
